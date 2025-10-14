@@ -1,5 +1,6 @@
 // src/services/jobsService.ts
 import { Bolt Database } from '../lib/Bolt DatabaseClient';
+
 import { JobListing, JobFilters, AutoApplyResult, ApplicationHistory, OptimizedResume } from '../types/jobs';
 import { sampleJobs, fetchJobListings } from './sampleJobsData';
 import { ResumeData } from '../types/resume';
