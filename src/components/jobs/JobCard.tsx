@@ -1,28 +1,16 @@
-// src/components/jobs/JobCard.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Building2,
   MapPin,
   Clock,
-  GraduationCap,
-  IndianRupee,
-  ExternalLink,
-  Zap,
-  User,
   Calendar,
-  Target,
-  Briefcase,
-  Globe,
-  CheckCircle,
-  AlertCircle,
-  Loader2,
-  ArrowRight,
-  Sparkles,
+  ExternalLink,
   Users,
-  Award,
-  Code,
-  ClipboardCheck
+  Bookmark,
+  Heart,
+  Copy,
+  Sparkles
 } from 'lucide-react';
 import { JobListing, AutoApplyResult, OptimizedResume } from '../../types/jobs';
 import { jobsService } from '../../services/jobsService';
@@ -37,7 +25,7 @@ interface JobCardProps {
   onAutoApply: (job: JobListing, result: AutoApplyResult) => void;
   isAuthenticated: boolean;
   onShowAuth: () => void;
-  onCompleteProfile?: () => void; // NEW: Function to open profile management
+  onCompleteProfile?: () => void;
 }
 
 export const JobCard: React.FC<JobCardProps> = ({
@@ -50,14 +38,8 @@ export const JobCard: React.FC<JobCardProps> = ({
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const [isAutoApplying, setIsAutoApplying] = useState(false);
-  const [optimizedResume, setOptimizedResume] = useState<OptimizedResume | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [profileValidation, setProfileValidation] = useState<{
-    isComplete: boolean;
-    missingFields: string[];
-  } | null>(null);
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
 
   const eligibleYearTags = useMemo(() => {
     const raw = job.eligible_years;
@@ -71,282 +53,228 @@ export const JobCard: React.FC<JobCardProps> = ({
 
     return tokens
       .map((value) => value.trim())
-      .filter((value, index, arr) => value.length > 0 && arr.indexOf(value) === index);
+      .filter((value, index, arr) => value.length > 0 && arr.indexOf(value) === index)
+      .slice(0, 3);
   }, [job.eligible_years]);
 
-  // Check profile completeness when component mounts (if authenticated)
-  useEffect(() => {
-    const checkProfile = async () => {
-      if (isAuthenticated && user) {
-        try {
-          const validation = await profileResumeService.isProfileCompleteForAutoApply(user.id);
-          setProfileValidation(validation);
-        } catch (err) {
-          console.error('Error checking profile completeness:', err);
-        }
-      }
-    };
-    
-    checkProfile();
-  }, [isAuthenticated, user]);
+  const handleCardClick = () => {
+    navigate(`/jobs/${job.id}`);
+  };
 
-  const handleManualApplyClick = () => {
+  const handleApplyClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!isAuthenticated) {
       onShowAuth();
       return;
     }
-
     navigate(`/jobs/${job.id}/apply`);
   };
 
-  const handleAutoApplyClick = async () => {
-    if (!isAuthenticated || !user) {
-      onShowAuth();
-      return;
-    }
+  const handleBookmark = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsBookmarked(!isBookmarked);
+  };
 
-    // Check if profile is complete for auto-apply
-    if (!profileValidation?.isComplete) {
-      setError(`Profile incomplete for auto-apply. Missing: ${profileValidation?.missingFields.join(', ') || 'profile data'}`);
-      return;
-    }
+  const handleFavorite = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsFavorited(!isFavorited);
+  };
 
-    setIsAutoApplying(true);
-    setError(null);
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(job.application_link);
+  };
 
-    try {
-      // Determine user type from profile
-      const userType = await autoApplyOrchestrator.getUserTypeFromProfile(user.id);
-      
-      console.log('JobCard: Starting intelligent auto-apply process...');
-      
-      // Use the orchestrator for the complete auto-apply flow
-      const orchestrationResult = await autoApplyOrchestrator.initiateAutoApply({
-        jobId: job.id,
-        userType: userType,
-        userId: user.id
-      });
+  const getSkillTags = () => {
+    const tags: string[] = [];
+    if (job.domain) tags.push(job.domain);
 
-      if (orchestrationResult.success && orchestrationResult.applicationResult) {
-        onAutoApply(job, orchestrationResult.applicationResult);
-      } else {
-        throw new Error(orchestrationResult.error || 'Auto-apply orchestration failed');
+    const descriptionLower = job.short_description?.toLowerCase() || '';
+    const commonSkills = ['React', 'Node.js', 'Python', 'Java', 'TypeScript', 'JavaScript', 'SQL', 'AWS', 'Docker', 'Kubernetes'];
+
+    commonSkills.forEach(skill => {
+      if (descriptionLower.includes(skill.toLowerCase()) && tags.length < 8) {
+        tags.push(skill.toUpperCase());
       }
-    } catch (err) {
-      console.error('Auto-apply failed:', err);
-      setError(err instanceof Error ? err.message : 'Auto-apply failed');
-    } finally {
-      setIsAutoApplying(false);
-    }
+    });
+
+    return tags.slice(0, 8);
   };
 
-  const getLocationIcon = () => {
-    switch (job.location_type) {
-      case 'Remote':
-        return <Globe className="w-4 h-4" />;
-      case 'Onsite':
-        return <Building2 className="w-4 h-4" />;
-      case 'Hybrid':
-        return <Target className="w-4 h-4" />;
-      default:
-        return <MapPin className="w-4 h-4" />;
-    }
-  };
-
-  const getDomainColor = (domain: string) => {
-    const colors: { [key: string]: string } = {
-      'SDE': 'from-blue-500 to-cyan-500',
-      'Data Science': 'from-purple-500 to-pink-500',
-      'Product': 'from-green-500 to-emerald-500',
-      'Design': 'from-orange-500 to-red-500',
-      'Marketing': 'from-yellow-500 to-amber-500',
-      'Sales': 'from-indigo-500 to-blue-500',
-    };
-    return colors[domain] || 'from-gray-500 to-slate-500';
-  };
-
-  const formatPackage = () => {
-    if (!job.package_amount || !job.package_type) return null;
-    
-    const amount = job.package_amount;
-    let formattedAmount = '';
-    
-    if (amount >= 100000) {
-      formattedAmount = `${(amount / 100000).toFixed(1)}L`;
-    } else if (amount >= 1000) {
-      formattedAmount = `${(amount / 1000).toFixed(0)}K`;
-    } else {
-      formattedAmount = amount.toString();
-    }
-
-    return `₹${formattedAmount} ${job.package_type}`;
-  };
+  const skillTags = getSkillTags();
+  const postedDaysAgo = Math.floor((Date.now() - new Date(job.posted_date).getTime()) / (1000 * 60 * 60 * 24));
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      whileHover={{ y: -5 }}
       transition={{ duration: 0.3 }}
-      className="bg-white rounded-2xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden dark:bg-dark-100 dark:border-dark-300 dark:hover:shadow-neon-cyan/20"
+      onClick={handleCardClick}
+      className="bg-white dark:bg-dark-100 rounded-xl border border-gray-200 dark:border-dark-300 hover:border-blue-400 dark:hover:border-neon-cyan-500 hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden"
     >
-      {/* Header */}
-      <div className="p-6 border-b border-gray-100 dark:border-dark-300">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center space-x-4">
+      <div className="p-5">
+        <div className="flex items-start space-x-4">
+          {/* Company Logo */}
+          <div className="flex-shrink-0 w-14 h-14 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-300 flex items-center justify-center p-2">
             {job.company_logo_url ? (
-              <div className="w-14 h-14 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-300 flex items-center justify-center p-2">
-                <img
-                  src={job.company_logo_url}
-                  alt={`${job.company_name} logo`}
-                  className="max-w-full max-h-full object-contain"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent) {
-                      parent.innerHTML = `<div class="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xl">${job.company_name.charAt(0)}</div>`;
-                    }
-                  }}
-                />
-              </div>
+              <img
+                src={job.company_logo_url}
+                alt={`${job.company_name} logo`}
+                className="max-w-full max-h-full object-contain"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent) {
+                    parent.innerHTML = `<div class="w-full h-full rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">${job.company_name.charAt(0)}</div>`;
+                  }
+                }}
+              />
             ) : (
-              <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-xl">
+              <div className="w-full h-full rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
                 {job.company_name.charAt(0)}
               </div>
             )}
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">
-                {job.role_title}
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 font-medium">
-                {job.company_name}
-              </p>
+          </div>
+
+          {/* Job Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between mb-2">
+              <div className="flex-1 min-w-0 pr-4">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1 truncate">
+                  {job.role_title}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  {job.company_name}
+                </p>
+              </div>
+
+              {/* Upload Resume Progress */}
+              <div className="flex-shrink-0 relative">
+                <svg className="w-12 h-12 transform -rotate-90">
+                  <circle
+                    cx="24"
+                    cy="24"
+                    r="20"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    className="text-gray-200 dark:text-dark-300"
+                  />
+                  <circle
+                    cx="24"
+                    cy="24"
+                    r="20"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    fill="none"
+                    strokeDasharray={`${2 * Math.PI * 20}`}
+                    strokeDashoffset={`${2 * Math.PI * 20 * (1 - 0.2)}`}
+                    className="text-orange-500 dark:text-orange-400"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">20%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Job Details */}
+            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-400 mb-3">
+              <div className="flex items-center space-x-1">
+                <MapPin className="w-3.5 h-3.5" />
+                <span>{job.location_city || job.location_type}</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Clock className="w-3.5 h-3.5" />
+                <span>Full-time</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <Users className="w-3.5 h-3.5" />
+                <span>{job.experience_required}</span>
+              </div>
+              {eligibleYearTags.length > 0 && (
+                <div className="flex items-center space-x-1">
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>{eligibleYearTags.join(' / ')}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Skill Tags */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {skillTags.map((tag, index) => (
+                <span
+                  key={index}
+                  className="px-2.5 py-1 bg-gray-100 dark:bg-dark-200 text-gray-700 dark:text-gray-300 rounded-md text-xs font-medium border border-gray-200 dark:border-dark-300"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            {/* Actions Row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                {job.has_referral && (
+                  <span className="px-2.5 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-md text-xs font-semibold flex items-center animate-pulse">
+                    <Users className="w-3 h-3 mr-1" />
+                    Referral
+                  </span>
+                )}
+                {job.ai_polished && (
+                  <span className="px-2.5 py-1 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 text-purple-700 dark:text-purple-300 rounded-md text-xs font-medium flex items-center border border-purple-200 dark:border-purple-700">
+                    <Sparkles className="w-3 h-3 mr-1" />
+                    AI Enhanced
+                  </span>
+                )}
+                <span className="text-xs text-gray-500 dark:text-gray-500">
+                  {postedDaysAgo === 0 ? 'Posted today' : `${postedDaysAgo} days ago`}
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={handleBookmark}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isBookmarked
+                      ? 'bg-blue-100 dark:bg-neon-cyan-500/20 text-blue-600 dark:text-neon-cyan-400'
+                      : 'bg-gray-100 dark:bg-dark-200 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-300'
+                  }`}
+                  aria-label="Bookmark"
+                >
+                  <Bookmark className="w-4 h-4" fill={isBookmarked ? 'currentColor' : 'none'} />
+                </button>
+                <button
+                  onClick={handleFavorite}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isFavorited
+                      ? 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400'
+                      : 'bg-gray-100 dark:bg-dark-200 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-300'
+                  }`}
+                  aria-label="Favorite"
+                >
+                  <Heart className="w-4 h-4" fill={isFavorited ? 'currentColor' : 'none'} />
+                </button>
+                <button
+                  onClick={handleCopy}
+                  className="p-2 rounded-lg bg-gray-100 dark:bg-dark-200 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-300 transition-colors"
+                  aria-label="Copy link"
+                >
+                  <Copy className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleApplyClick}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-500 dark:to-neon-cyan-500 hover:from-purple-700 hover:to-blue-700 dark:hover:from-purple-600 dark:hover:to-neon-cyan-600 text-white rounded-lg text-sm font-semibold transition-all duration-200 flex items-center space-x-1 shadow-md hover:shadow-lg"
+                >
+                  <span>APPLIED</span>
+                </button>
+              </div>
             </div>
           </div>
-          {formatPackage() && (
-            <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold dark:bg-green-900/20 dark:text-green-300">
-              {formatPackage()}
-            </div>
-          )}
         </div>
-
-        <div className="flex flex-wrap gap-2 mb-4">
-          <span className={`px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${getDomainColor(job.domain)} text-white`}>
-            {job.domain}
-          </span>
-          <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium flex items-center dark:bg-blue-900/20 dark:text-blue-300">
-            {getLocationIcon()}
-            <span className="ml-1">{job.location_type}</span>
-            {job.location_city && <span>, {job.location_city}</span>}
-          </span>
-          <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium flex items-center dark:bg-purple-900/20 dark:text-purple-300">
-            <Clock className="w-3 h-3 mr-1" />
-            {job.experience_required}
-          </span>
-          {eligibleYearTags.length > 0 && (
-            <span className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-xs font-medium flex items-center dark:bg-amber-900/20 dark:text-amber-300">
-              <Calendar className="w-3 h-3 mr-1" />
-              <span>Eligible: {eligibleYearTags.join(' / ')}</span>
-            </span>
-          )}
-          {job.has_referral && (
-            <span className="px-3 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full text-xs font-bold flex items-center shadow-md animate-pulse">
-              <Users className="w-3 h-3 mr-1" />
-              Referral Available
-            </span>
-          )}
-          {(job.has_coding_test || job.has_aptitude_test || job.has_technical_interview || job.has_hr_interview) && (
-            <span className="px-3 py-1 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-full text-xs font-medium flex items-center">
-              <ClipboardCheck className="w-3 h-3 mr-1" />
-              {[job.has_coding_test && 'Code', job.has_aptitude_test && 'Aptitude', job.has_technical_interview && 'Tech', job.has_hr_interview && 'HR'].filter(Boolean).join(' + ')}
-            </span>
-          )}
-          {job.ai_polished && (
-            <span className="px-3 py-1 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 dark:from-purple-900/40 dark:to-pink-900/40 dark:text-purple-300 rounded-full text-xs font-medium flex items-center border border-purple-200 dark:border-purple-700">
-              <Sparkles className="w-3 h-3 mr-1" />
-              AI Enhanced
-            </span>
-          )}
-        </div>
-
-        <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
-          {job.short_description}
-        </p>
-      </div>
-
-      {/* Details */}
-      <div className="p-6 bg-gray-50 dark:bg-dark-200">
-        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-          <div className="flex items-center text-gray-600 dark:text-gray-300">
-            <GraduationCap className="w-4 h-4 mr-2" />
-            <span>{job.qualification}</span>
-          </div>
-          <div className="flex items-center text-gray-600 dark:text-gray-300">
-            <Calendar className="w-4 h-4 mr-2" />
-            <span>{new Date(job.posted_date).toLocaleDateString()}</span>
-          </div>
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-500/50">
-            <div className="flex items-center text-red-700 dark:text-red-300">
-              <AlertCircle className="w-4 h-4 mr-2" />
-              <span className="text-sm">{error}</span>
-            </div>
-          </div>
-        )}
-
-        {optimizedResume && (
-          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg dark:bg-green-900/20 dark:border-green-500/50">
-            <div className="flex items-center text-green-700 dark:text-green-300">
-              <CheckCircle className="w-4 h-4 mr-2" />
-              <span className="text-sm">
-                Resume optimized! Score: {optimizedResume.optimization_score}/100
-              </span>
-            </div>
-          </div>
-        )}
-
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          onClick={handleManualApplyClick}
-          disabled={isOptimizing}
-          className={`inline-flex min-w-[150px] px-5 py-3 rounded-xl font-semibold transition-all duration-300 items-center justify-center gap-2 ${
-            isOptimizing
-              ? 'bg-gray-400 text-white cursor-not-allowed'
-              : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white shadow-lg hover:shadow-xl'
-          }`}
-        >
-          {isOptimizing ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Optimizing...</span>
-            </>
-          ) : (
-            <>
-              <ExternalLink className="w-4 h-4" />
-              <span>Manual Apply</span>
-            </>
-          )}
-        </button>
-
-        <button
-          disabled={true}
-          className="inline-flex min-w-[150px] px-5 py-3 rounded-xl font-semibold transition-all duration-300 items-center justify-center gap-2 bg-gray-300 text-gray-600 cursor-not-allowed relative overflow-hidden dark:bg-gray-700 dark:text-gray-400"
-          title="Feature launching soon"
-        >
-          <Sparkles className="w-4 h-4 animate-pulse" />
-          <span>AUTO Apply</span>
-          <div className="absolute top-0 right-0 bg-yellow-400 text-yellow-900 text-xs px-2 py-0.5 rounded-bl-lg font-bold">COMING SOON</div>
-        </button>
-      </div>
-        
-        
       </div>
     </motion.div>
   );
 };
-
-
-

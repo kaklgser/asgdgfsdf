@@ -262,6 +262,8 @@ class JobsService {
     jobs: JobListing[];
     total: number;
     hasMore: boolean;
+    totalPages: number;
+    currentPage: number;
   }> {
     try {
       console.log('JobsService: Fetching job listings from database with filters:', filters);
@@ -333,11 +335,15 @@ class JobsService {
 
       const total = count || 0;
       const hasMore = offset + limit < total;
+      const totalPages = Math.ceil(total / limit);
+      const currentPage = Math.floor(offset / limit) + 1;
 
       return {
         jobs,
         total,
-        hasMore
+        hasMore,
+        totalPages,
+        currentPage
       };
     } catch (error) {
       console.error('JobsService: Error fetching job listings:', error);

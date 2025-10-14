@@ -14,7 +14,7 @@ import {
   CheckCircle,
   RefreshCw
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { JobListing, JobFilters, AutoApplyResult, OptimizedResume } from '../../types/jobs';
 import { jobsService } from '../../services/jobsService';
@@ -23,6 +23,7 @@ import { JobFilters as JobFiltersComponent } from '../jobs/JobFilters';
 import { OptimizedResumePreviewModal } from '../modals/OptimizedResumePreviewModal';
 import { ApplicationConfirmationModal } from '../modals/ApplicationConfirmationModal';
 import { AutoApplyProgressModal } from '../modals/AutoApplyProgressModal';
+import { Pagination } from '../common/Pagination';
 
 interface JobsPageProps {
   isAuthenticated: boolean;
@@ -33,10 +34,11 @@ interface JobsPageProps {
 export const JobsPage: React.FC<JobsPageProps> = ({
   isAuthenticated,
   onShowAuth,
-  onShowProfile // NEW: Destructure the new prop
+  onShowProfile
 }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [filters, setFilters] = useState<JobFilters>({});
@@ -44,7 +46,11 @@ export const JobsPage: React.FC<JobsPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
-  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => {
+    const pageParam = searchParams.get('page');
+    return pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+  });
 
   // Modal states
   const [showResumePreview, setShowResumePreview] = useState(false);
@@ -57,43 +63,51 @@ export const JobsPage: React.FC<JobsPageProps> = ({
 
   const pageSize = 12;
 
-  const loadJobs = useCallback(async (page = 0, newFilters = filters) => {
+  const loadJobs = useCallback(async (page = 1, newFilters = filters) => {
     setIsLoading(true);
     setError(null);
 
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
     try {
-      const offset = page * pageSize;
+      const offset = (page - 1) * pageSize;
       const result = await jobsService.getJobListings(newFilters, pageSize, offset);
-      
-      if (page === 0) {
-        setJobs(result.jobs);
-      } else {
-        setJobs(prev => [...prev, ...result.jobs]);
-      }
-      
+
+      setJobs(result.jobs);
       setTotal(result.total);
       setHasMore(result.hasMore);
+      setTotalPages(result.totalPages);
       setCurrentPage(page);
+
+      setSearchParams({ page: page.toString() });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load jobs');
     } finally {
       setIsLoading(false);
     }
-  }, [filters, pageSize]);
+  }, [filters, pageSize, setSearchParams]);
 
   useEffect(() => {
-    loadJobs(0, filters);
+    loadJobs(currentPage, filters);
   }, [filters]);
+
+  useEffect(() => {
+    const pageParam = searchParams.get('page');
+    const pageNumber = pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
+    if (pageNumber !== currentPage) {
+      setCurrentPage(pageNumber);
+      loadJobs(pageNumber, filters);
+    }
+  }, [searchParams]);
 
   const handleFiltersChange = (newFilters: JobFilters) => {
     setFilters(newFilters);
-    setCurrentPage(0);
+    setCurrentPage(1);
+    setSearchParams({ page: '1' });
   };
 
-  const handleLoadMore = () => {
-    if (!isLoading && hasMore) {
-      loadJobs(currentPage + 1);
-    }
+  const handlePageChange = (page: number) => {
+    loadJobs(page, filters);
   };
 
   const handleManualApply = (job: JobListing, optimizedResume: OptimizedResume) => {
@@ -243,31 +257,25 @@ export const JobsPage: React.FC<JobsPageProps> = ({
 
             {/* Loading State */}
             {isLoading && (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-blue-600 mr-2" />
-                <span className="text-gray-600 dark:text-gray-300">Loading jobs...</span>
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-600 mr-3 dark:text-neon-cyan-400" />
+                <span className="text-lg text-gray-600 dark:text-gray-300">Loading jobs...</span>
               </div>
             )}
 
-            {/* Load More Button */}
-            {!isLoading && hasMore && (
-              <div className="text-center">
-                <button
-                  onClick={handleLoadMore}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-8 rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
-                >
-                  Load More Jobs
-                </button>
-              </div>
-            )}
-
-            {/* No More Jobs */}
-            {!isLoading && !hasMore && jobs.length > 0 && (
-              <div className="text-center py-8">
-                <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 dark:bg-dark-200">
-                  <CheckCircle className="w-8 h-8 text-gray-600 dark:text-gray-400" />
+            {/* Pagination */}
+            {!isLoading && jobs.length > 0 && totalPages > 1 && (
+              <div className="mt-8">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                />
+                <div className="text-center mt-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Showing {(currentPage - 1) * pageSize + 1} - {Math.min(currentPage * pageSize, total)} of {total} jobs
+                  </p>
                 </div>
-                <p className="text-gray-600 dark:text-gray-300">You've seen all available jobs</p>
               </div>
             )}
 
