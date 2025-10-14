@@ -13,7 +13,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 interface JobCardProps {
-  job: JobListing;
+  job: JobListing & {
+    match_score?: number;
+    match_reason?: string;
+    skills_matched?: string[];
+  };
   isAuthenticated: boolean;
   onShowAuth: () => void;
 }
@@ -64,8 +68,25 @@ export const JobCard: React.FC<JobCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
       onClick={handleCardClick}
-      className="bg-white dark:bg-dark-100 rounded-xl border border-gray-200 dark:border-dark-300 hover:border-blue-400 dark:hover:border-neon-cyan-500 hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden"
+      className={`bg-white dark:bg-dark-100 rounded-xl border-2 ${
+        job.match_score
+          ? 'border-green-400 dark:border-green-500 shadow-lg shadow-green-200 dark:shadow-green-900/30'
+          : 'border-gray-200 dark:border-dark-300'
+      } hover:border-blue-400 dark:hover:border-neon-cyan-500 hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden`}
     >
+      {job.match_score && (
+        <div className="bg-gradient-to-r from-green-500 to-emerald-500 px-4 py-2 flex items-center justify-between">
+          <div className="flex items-center space-x-2 text-white">
+            <Sparkles className="w-4 h-4" />
+            <span className="font-bold text-lg">{job.match_score}% Match</span>
+          </div>
+          {job.match_reason && (
+            <span className="text-white text-xs bg-white/20 px-2 py-1 rounded-full">
+              AI Recommended
+            </span>
+          )}
+        </div>
+      )}
       <div className="p-3">
         <div className="flex items-start space-x-4">
           {/* Company Logo */}

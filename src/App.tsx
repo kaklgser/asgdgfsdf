@@ -445,6 +445,7 @@ function App() {
         <Route path="/careers" element={<CareersPage {...commonPageProps} />} />
         <Route path="/careers/:jobId" element={<JobDetailsPage {...commonPageProps} />} />
         <Route path="/jobs" element={<JobsPage {...commonPageProps} onShowProfile={handleShowProfile} />} />
+        <Route path="/jobs/:jobId" element={<JobDetailsPage {...commonPageProps} />} />
         <Route path="/jobs/:jobId/apply" element={<JobApplicationPage />} />
         <Route path="/jobs/:jobId/apply-form" element={<JobApplicationFormPage />} />
         <Route path="/jobs/applications" element={<MyApplicationsPage {...commonPageProps} />} />

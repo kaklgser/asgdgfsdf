@@ -24,6 +24,9 @@ import { OptimizedResumePreviewModal } from '../modals/OptimizedResumePreviewMod
 import { ApplicationConfirmationModal } from '../modals/ApplicationConfirmationModal';
 import { AutoApplyProgressModal } from '../modals/AutoApplyProgressModal';
 import { Pagination } from '../common/Pagination';
+import { JobPreferencesOnboardingModal } from '../modals/JobPreferencesOnboardingModal';
+import { userPreferencesService } from '../../services/userPreferencesService';
+import { aiJobMatchingService } from '../../services/aiJobMatchingService';
 
 interface JobsPageProps {
   isAuthenticated: boolean;
@@ -61,7 +64,83 @@ export const JobsPage: React.FC<JobsPageProps> = ({
   const [showAutoApplyProgress, setShowAutoApplyProgress] = useState(false);
   const [autoApplyApplicationId, setAutoApplyApplicationId] = useState<string | null>(null);
 
+  // AI Recommendations state
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [aiRecommendations, setAiRecommendations] = useState<any[]>([]);
+  const [showingRecommendations, setShowingRecommendations] = useState(false);
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false);
+
   const pageSize = 12;
+
+  // Check onboarding status on mount
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      if (user?.id) {
+        const completed = await userPreferencesService.hasCompletedOnboarding(user.id);
+        setHasCompletedOnboarding(completed);
+
+        if (!completed) {
+          setTimeout(() => setShowOnboarding(true), 1000);
+        } else {
+          loadAIRecommendations();
+        }
+      }
+    };
+    checkOnboarding();
+  }, [user?.id]);
+
+  const loadAIRecommendations = async () => {
+    if (!user?.id) return;
+
+    setLoadingRecommendations(true);
+    try {
+      const recommendations = await aiJobMatchingService.getRecommendations(user.id, 40);
+      setAiRecommendations(recommendations);
+      if (recommendations.length > 0) {
+        setShowingRecommendations(true);
+      }
+    } catch (error) {
+      console.error('Error loading AI recommendations:', error);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
+
+  const handleRefreshRecommendations = async () => {
+    if (!user?.id) return;
+
+    setLoadingRecommendations(true);
+    try {
+      const preferences = await userPreferencesService.getUserPreferences(user.id);
+      if (!preferences) return;
+
+      const allJobs = await jobsService.getAllJobs();
+      await aiJobMatchingService.analyzeAndMatch(
+        user.id,
+        {
+          resumeText: preferences.resume_text || '',
+          passoutYear: preferences.passout_year || 2024,
+          roleType: preferences.role_type || 'both',
+          techInterests: preferences.tech_interests || [],
+          preferredModes: preferences.preferred_modes || [],
+        },
+        allJobs
+      );
+
+      await loadAIRecommendations();
+    } catch (error) {
+      console.error('Error refreshing recommendations:', error);
+    } finally {
+      setLoadingRecommendations(false);
+    }
+  };
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+    setHasCompletedOnboarding(true);
+    loadAIRecommendations();
+  };
 
   const loadJobs = useCallback(async (page = 1, newFilters = filters) => {
     setIsLoading(true);
@@ -181,11 +260,52 @@ export const JobsPage: React.FC<JobsPageProps> = ({
             <Briefcase className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            Find Your Dream Job
+            {showingRecommendations ? 'Your Recommended Jobs' : 'Find Your Dream Job'}
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Discover opportunities, apply with AI-optimized resumes, and track your applications all in one place.
+            {showingRecommendations
+              ? 'AI-powered recommendations based on your profile and preferences'
+              : 'Discover opportunities, apply with AI-optimized resumes, and track your applications all in one place.'}
           </p>
+
+          {hasCompletedOnboarding && (
+            <div className="flex items-center justify-center space-x-4 mt-6">
+              <button
+                onClick={() => setShowingRecommendations(!showingRecommendations)}
+                className={`px-6 py-3 rounded-xl font-semibold transition-all shadow-lg ${
+                  showingRecommendations
+                    ? 'bg-gradient-to-r from-green-600 to-teal-600 text-white'
+                    : 'bg-white dark:bg-dark-100 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-dark-300'
+                } hover:scale-105`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Sparkles className="w-5 h-5" />
+                  <span>{showingRecommendations ? 'Showing AI Matches' : 'Show AI Matches'}</span>
+                  {aiRecommendations.length > 0 && (
+                    <span className="bg-white/20 px-2 py-0.5 rounded-full text-sm">
+                      {aiRecommendations.length}
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              <button
+                onClick={handleRefreshRecommendations}
+                disabled={loadingRecommendations}
+                className="px-4 py-3 rounded-xl font-semibold bg-white dark:bg-dark-100 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-dark-300 hover:scale-105 transition-all shadow-lg disabled:opacity-50"
+              >
+                <RefreshCw className={`w-5 h-5 ${loadingRecommendations ? 'animate-spin' : ''}`} />
+              </button>
+
+              <button
+                onClick={() => setShowOnboarding(true)}
+                className="px-4 py-3 rounded-xl font-semibold bg-white dark:bg-dark-100 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-dark-300 hover:scale-105 transition-all shadow-lg"
+                title="Update preferences"
+              >
+                ⚙️
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Stats */}
@@ -242,7 +362,15 @@ export const JobsPage: React.FC<JobsPageProps> = ({
         {!error && (
           <>
            <div className="container mx-auto px-2 sm:px-4 py-8">
-              {jobs.map((job, index) => (
+              {(showingRecommendations && aiRecommendations.length > 0
+                ? aiRecommendations.map((rec) => ({
+                    ...rec.job_data,
+                    match_score: rec.match_score,
+                    match_reason: rec.match_reason,
+                    skills_matched: rec.skills_matched,
+                  }))
+                : jobs
+              ).map((job: any, index: number) => (
                 <JobCard
                   key={job.id}
                   job={job}
@@ -328,6 +456,12 @@ export const JobsPage: React.FC<JobsPageProps> = ({
           setApplicationResult(result);
           setShowApplicationConfirmation(true);
         }}
+      />
+
+      <JobPreferencesOnboardingModal
+        isOpen={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={handleOnboardingComplete}
       />
     </div>
   );
