@@ -1,6 +1,5 @@
 // src/services/jobsService.ts
-import { BoltDatabase } from '../lib/BoltDatabaseClient';
-
+import { supabase } from '../lib/supabaseClient';
 import { JobListing, JobFilters, AutoApplyResult, ApplicationHistory, OptimizedResume } from '../types/jobs';
 import { sampleJobs, fetchJobListings } from './sampleJobsData';
 import { ResumeData } from '../types/resume';
@@ -181,8 +180,7 @@ class JobsService {
   // Get a single job listing by ID
   async getJobListingById(jobId: string): Promise<JobListing | null> {
     try {
-      const { data: job, error } = await BoltDatabase
-
+      const { data: job, error } = await supabase
         .from('job_listings')
         .select('*')
         .eq('id', jobId)
@@ -215,8 +213,7 @@ class JobsService {
       const placeholderPdfUrl = `https://example.com/resumes/optimized_${userId}_${jobId}.pdf`;
       const placeholderDocxUrl = `https://example.com/resumes/optimized_${userId}_${jobId}.docx`;
 
-      const { data: optimizedResume, error } = await BoltDatabase
-
+      const { data: optimizedResume, error } = await supabase
         .from('optimized_resumes')
         .insert({
           user_id: userId,
@@ -244,8 +241,7 @@ class JobsService {
 
   async getOptimizedResumeById(optimizedResumeId: string): Promise<OptimizedResume | null> {
     try {
-      const { data: optimizedResume, error } = await BoltDatabase
-
+      const { data: optimizedResume, error } = await supabase
         .from('optimized_resumes')
         .select('*')
         .eq('id', optimizedResumeId)
@@ -262,62 +258,16 @@ class JobsService {
     }
   }
 
-  async enrichJobsWithApplicationStatus(jobs: JobListing[]): Promise<JobListing[]> {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session || !jobs.length) return jobs;
-
-      const jobIds = jobs.map(job => job.id);
-
-      const { data: applications } = await BoltDatabase
-        .from('user_job_applications')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .in('job_listing_id', jobIds);
-
-      if (!applications) return jobs;
-
-      const applicationMap = new Map(
-        applications.map(app => [app.job_listing_id, app])
-      );
-
-      return jobs.map(job => {
-        const app = applicationMap.get(job.id);
-        if (!app) return job;
-
-        return {
-          ...job,
-          user_has_applied: true,
-          user_application_method: app.application_method,
-          user_application_date: app.application_date,
-          user_application_status: app.status
-        };
-      });
-    } catch (error) {
-      console.error('Error enriching jobs with application status:', error);
-      return jobs;
-    }
-  }
-
-  parseSkills(job: JobListing): string[] {
-    if (job.skills && Array.isArray(job.skills)) {
-      return job.skills.slice(0, 8);
-    }
-    return [];
-  }
-
   async getJobListings(filters: JobFilters = {}, limit = 20, offset = 0): Promise<{
     jobs: JobListing[];
     total: number;
     hasMore: boolean;
-    totalPages: number;
-    currentPage: number;
   }> {
     try {
       console.log('JobsService: Fetching job listings from database with filters:', filters);
 
       // Start building the query
-      let query = BoltDatabase
+      let query = supabase
         .from('job_listings')
         .select('*', { count: 'exact' })
         .eq('is_active', true);
@@ -381,62 +331,18 @@ class JobsService {
         return await fetchJobListings(filters, limit, offset);
       }
 
-      // Enrich jobs with application status
-      const enrichedJobs = await this.enrichJobsWithApplicationStatus(jobs);
-
       const total = count || 0;
       const hasMore = offset + limit < total;
-      const totalPages = Math.ceil(total / limit);
-      const currentPage = Math.floor(offset / limit) + 1;
 
       return {
-        jobs: enrichedJobs,
+        jobs,
         total,
-        hasMore,
-        totalPages,
-        currentPage
+        hasMore
       };
     } catch (error) {
       console.error('JobsService: Error fetching job listings:', error);
       console.log('JobsService: Falling back to sample data');
       return await fetchJobListings(filters, limit, offset);
-    }
-  }
-
-  /**
-   * Get all active job listings without pagination
-   * Used for AI job matching and recommendations
-   */
-  async getAllJobs(): Promise<JobListing[]> {
-    try {
-      console.log('JobsService: Fetching all active job listings for AI matching');
-
-      const { data: jobs, error } = await BoltDatabase
-        .from('job_listings')
-        .select('*')
-        .eq('is_active', true)
-        .order('posted_date', { ascending: false });
-
-      if (error) {
-        console.error('JobsService: Error fetching all jobs:', error);
-        console.log('JobsService: Falling back to sample data');
-        return sampleJobs;
-      }
-
-      if (!jobs || jobs.length === 0) {
-        console.log('JobsService: No jobs found in database, returning sample data');
-        return sampleJobs;
-      }
-
-      console.log(`JobsService: Successfully fetched ${jobs.length} jobs`);
-
-      // Enrich with application status
-      const enrichedJobs = await this.enrichJobsWithApplicationStatus(jobs);
-      return enrichedJobs;
-    } catch (error) {
-      console.error('JobsService: Error in getAllJobs:', error);
-      console.log('JobsService: Returning sample data due to error');
-      return sampleJobs;
     }
   }
 
@@ -446,7 +352,7 @@ class JobsService {
       if (!session) throw new Error('Authentication required');
 
       const response = await fetch(
-        `${import.meta.env.VITE_BoltDatabase_URL}/functions/v1/optimize-resume-for-job`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/optimize-resume-for-job`,
         {
           method: 'POST',
           headers: {
@@ -486,7 +392,7 @@ class JobsService {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Authentication required');
 
-      const { error } = await BoltDatabase
+      const { error } = await supabase
         .from('manual_apply_logs')
         .insert({
           user_id: session.user.id,
@@ -513,7 +419,7 @@ class JobsService {
       if (!session) throw new Error('Authentication required');
 
       const response = await fetch(
-        `${import.meta.env.VITE_BoltDatabase_URL}/functions/v1/auto-apply`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auto-apply`,
         {
           method: 'POST',
           headers: {
@@ -552,7 +458,7 @@ class JobsService {
       });
 
       const response = await fetch(
-        `${import.meta.env.VITE_BoltDatabase_URL}/functions/v1/get-application-history?${params}`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-application-history?${params}`,
         {
           method: 'GET',
           headers: {
@@ -608,7 +514,7 @@ class JobsService {
       }
 
       // Update job with polished content
-      const { error } = await BoltDatabase
+      const { error } = await supabase
         .from('job_listings')
         .update({
           full_description: polishedDescription,
@@ -641,7 +547,7 @@ class JobsService {
       const { data: domains } = await supabase.from('job_listings').select('domain').eq('is_active', true);
       const { data: locations } = await supabase.from('job_listings').select('location_type').eq('is_active', true);
       const { data: experiences } = await supabase.from('job_listings').select('experience_required').eq('is_active', true);
-      const { data: packages } = await BoltDatabase
+      const { data: packages } = await supabase
         .from('job_listings')
         .select('package_amount')
         .eq('is_active', true)
@@ -649,7 +555,7 @@ class JobsService {
       let eligibleYears: string[] = [];
 
       if (JobsService.eligibleYearsSupported) {
-        const { data: eligibleYearRows, error: eligibleYearsError } = await BoltDatabase
+        const { data: eligibleYearRows, error: eligibleYearsError } = await supabase
           .from('job_listings')
           .select('eligible_years')
           .eq('is_active', true);
