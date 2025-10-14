@@ -1,5 +1,5 @@
 // src/services/jobsService.ts
-import { BoltDatabase } from '../lib/Bolt DatabaseClient';
+import { BoltDatabase } from '../lib/BoltDatabaseClient';
 
 import { JobListing, JobFilters, AutoApplyResult, ApplicationHistory, OptimizedResume } from '../types/jobs';
 import { sampleJobs, fetchJobListings } from './sampleJobsData';
@@ -181,7 +181,8 @@ class JobsService {
   // Get a single job listing by ID
   async getJobListingById(jobId: string): Promise<JobListing | null> {
     try {
-      const { data: job, error } = await Bolt Database
+      const { data: job, error } = await BoltDatabase
+
         .from('job_listings')
         .select('*')
         .eq('id', jobId)
@@ -214,7 +215,8 @@ class JobsService {
       const placeholderPdfUrl = `https://example.com/resumes/optimized_${userId}_${jobId}.pdf`;
       const placeholderDocxUrl = `https://example.com/resumes/optimized_${userId}_${jobId}.docx`;
 
-      const { data: optimizedResume, error } = await Bolt Database
+      const { data: optimizedResume, error } = await BoltDatabase
+
         .from('optimized_resumes')
         .insert({
           user_id: userId,
@@ -242,7 +244,8 @@ class JobsService {
 
   async getOptimizedResumeById(optimizedResumeId: string): Promise<OptimizedResume | null> {
     try {
-      const { data: optimizedResume, error } = await Bolt Database
+      const { data: optimizedResume, error } = await BoltDatabase
+
         .from('optimized_resumes')
         .select('*')
         .eq('id', optimizedResumeId)
@@ -266,7 +269,7 @@ class JobsService {
 
       const jobIds = jobs.map(job => job.id);
 
-      const { data: applications } = await Bolt Database
+      const { data: applications } = await BoltDatabase
         .from('user_job_applications')
         .select('*')
         .eq('user_id', session.user.id)
@@ -314,7 +317,7 @@ class JobsService {
       console.log('JobsService: Fetching job listings from database with filters:', filters);
 
       // Start building the query
-      let query = Bolt Database
+      let query = BoltDatabase
         .from('job_listings')
         .select('*', { count: 'exact' })
         .eq('is_active', true);
@@ -408,7 +411,7 @@ class JobsService {
     try {
       console.log('JobsService: Fetching all active job listings for AI matching');
 
-      const { data: jobs, error } = await Bolt Database
+      const { data: jobs, error } = await BoltDatabase
         .from('job_listings')
         .select('*')
         .eq('is_active', true)
@@ -443,7 +446,7 @@ class JobsService {
       if (!session) throw new Error('Authentication required');
 
       const response = await fetch(
-        `${import.meta.env.VITE_Bolt Database_URL}/functions/v1/optimize-resume-for-job`,
+        `${import.meta.env.VITE_BoltDatabase_URL}/functions/v1/optimize-resume-for-job`,
         {
           method: 'POST',
           headers: {
@@ -483,7 +486,7 @@ class JobsService {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Authentication required');
 
-      const { error } = await Bolt Database
+      const { error } = await BoltDatabase
         .from('manual_apply_logs')
         .insert({
           user_id: session.user.id,
@@ -510,7 +513,7 @@ class JobsService {
       if (!session) throw new Error('Authentication required');
 
       const response = await fetch(
-        `${import.meta.env.VITE_Bolt Database_URL}/functions/v1/auto-apply`,
+        `${import.meta.env.VITE_BoltDatabase_URL}/functions/v1/auto-apply`,
         {
           method: 'POST',
           headers: {
@@ -549,7 +552,7 @@ class JobsService {
       });
 
       const response = await fetch(
-        `${import.meta.env.VITE_Bolt Database_URL}/functions/v1/get-application-history?${params}`,
+        `${import.meta.env.VITE_BoltDatabase_URL}/functions/v1/get-application-history?${params}`,
         {
           method: 'GET',
           headers: {
@@ -605,7 +608,7 @@ class JobsService {
       }
 
       // Update job with polished content
-      const { error } = await Bolt Database
+      const { error } = await BoltDatabase
         .from('job_listings')
         .update({
           full_description: polishedDescription,
@@ -638,7 +641,7 @@ class JobsService {
       const { data: domains } = await supabase.from('job_listings').select('domain').eq('is_active', true);
       const { data: locations } = await supabase.from('job_listings').select('location_type').eq('is_active', true);
       const { data: experiences } = await supabase.from('job_listings').select('experience_required').eq('is_active', true);
-      const { data: packages } = await Bolt Database
+      const { data: packages } = await BoltDatabase
         .from('job_listings')
         .select('package_amount')
         .eq('is_active', true)
@@ -646,7 +649,7 @@ class JobsService {
       let eligibleYears: string[] = [];
 
       if (JobsService.eligibleYearsSupported) {
-        const { data: eligibleYearRows, error: eligibleYearsError } = await Bolt Database
+        const { data: eligibleYearRows, error: eligibleYearsError } = await BoltDatabase
           .from('job_listings')
           .select('eligible_years')
           .eq('is_active', true);
