@@ -1,45 +1,30 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
   Building2,
   MapPin,
   Clock,
   Calendar,
-  ExternalLink,
   Users,
-  Bookmark,
-  Heart,
-  Copy,
   Sparkles
 } from 'lucide-react';
-import { JobListing, AutoApplyResult, OptimizedResume } from '../../types/jobs';
-import { jobsService } from '../../services/jobsService';
-import { autoApplyOrchestrator } from '../../services/autoApplyOrchestrator';
-import { profileResumeService } from '../../services/profileResumeService';
+import { JobListing } from '../../types/jobs';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 interface JobCardProps {
   job: JobListing;
-  onManualApply: (job: JobListing, optimizedResume: OptimizedResume) => void;
-  onAutoApply: (job: JobListing, result: AutoApplyResult) => void;
   isAuthenticated: boolean;
   onShowAuth: () => void;
-  onCompleteProfile?: () => void;
 }
 
 export const JobCard: React.FC<JobCardProps> = ({
   job,
-  onManualApply,
-  onAutoApply,
   isAuthenticated,
-  onShowAuth,
-  onCompleteProfile
+  onShowAuth
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [isBookmarked, setIsBookmarked] = useState(false);
-  const [isFavorited, setIsFavorited] = useState(false);
 
   const eligibleYearTags = useMemo(() => {
     const raw = job.eligible_years;
@@ -61,28 +46,13 @@ export const JobCard: React.FC<JobCardProps> = ({
     navigate(`/jobs/${job.id}`);
   };
 
-  const handleApplyClick = (e: React.MouseEvent) => {
+  const handleManualApply = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated) {
       onShowAuth();
       return;
     }
-    navigate(`/jobs/${job.id}/apply`);
-  };
-
-  const handleBookmark = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsBookmarked(!isBookmarked);
-  };
-
-  const handleFavorite = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsFavorited(!isFavorited);
-  };
-
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(job.application_link);
+    navigate(`/jobs/${job.id}`);
   };
 
   const skillTags = job.skills || [];
@@ -133,7 +103,7 @@ export const JobCard: React.FC<JobCardProps> = ({
                 </p>
               </div>
 
-                {/* Commission Badge */}
+              {/* Commission Badge */}
               {job.user_has_applied && job.commission_percentage && job.commission_percentage > 0 && (
                 <div className="flex-shrink-0 relative">
                   <svg className="w-10 h-10 transform -rotate-90">
@@ -224,55 +194,20 @@ export const JobCard: React.FC<JobCardProps> = ({
                 </span>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center space-x-1.5">
+              {/* New Apply Buttons */}
+              <div className="flex items-center space-x-2">
                 <button
-                  onClick={handleBookmark}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    isBookmarked
-                      ? 'bg-blue-100 dark:bg-neon-cyan-500/20 text-blue-600 dark:text-neon-cyan-400'
-                      : 'bg-gray-100 dark:bg-dark-200 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-300'
-                  }`}
-                  aria-label="Bookmark"
+                  disabled
+                  className="px-3 py-1.5 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-dark-300 dark:to-dark-200 text-gray-600 dark:text-gray-400 rounded-lg text-xs font-semibold cursor-not-allowed"
                 >
-                  <Bookmark className="w-3.5 h-3.5" fill={isBookmarked ? 'currentColor' : 'none'} />
+                  Auto Apply (Coming Soon)
                 </button>
                 <button
-                  onClick={handleFavorite}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    isFavorited
-                      ? 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400'
-                      : 'bg-gray-100 dark:bg-dark-200 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-300'
-                  }`}
-                  aria-label="Favorite"
+                  onClick={handleManualApply}
+                  className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-purple-700 shadow-md hover:shadow-lg transition-all duration-200"
                 >
-                  <Heart className="w-3.5 h-3.5" fill={isFavorited ? 'currentColor' : 'none'} />
+                  Manual Apply
                 </button>
-                <button
-                  onClick={handleCopy}
-                  className="p-1.5 rounded-lg bg-gray-100 dark:bg-dark-200 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-300 transition-colors"
-                  aria-label="Copy link"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
-                {job.user_has_applied ? (
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1 ${
-                      job.user_application_method === 'auto'
-                        ? 'bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300 border border-green-300 dark:border-green-700'
-                        : 'bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700'
-                    }`}>
-                      <span>{job.user_application_method === 'auto' ? 'AUTO APPLIED' : 'APPLIED'}</span>
-                    </span>
-                  </div>
-                ) : (
-                  <button
-                    onClick={handleApplyClick}
-                    className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-500 dark:to-neon-cyan-500 hover:from-purple-700 hover:to-blue-700 dark:hover:from-purple-600 dark:hover:to-neon-cyan-600 text-white rounded-lg text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
-                  >
-                    Apply Now
-                  </button>
-                )}
               </div>
             </div>
           </div>
