@@ -46,6 +46,16 @@ export interface JobListing {
   ai_polished?: boolean;
   ai_polished_at?: string;
   original_description?: string;
+
+  // Skills and Commission
+  skills?: string[];
+  commission_percentage?: number;
+
+  // User Application Status (populated for authenticated users)
+  user_has_applied?: boolean;
+  user_application_method?: 'manual' | 'auto';
+  user_application_date?: string;
+  user_application_status?: 'pending' | 'submitted' | 'failed';
 }
 
 export interface OptimizedResume {

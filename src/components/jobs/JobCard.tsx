@@ -85,23 +85,7 @@ export const JobCard: React.FC<JobCardProps> = ({
     navigator.clipboard.writeText(job.application_link);
   };
 
-  const getSkillTags = () => {
-    const tags: string[] = [];
-    if (job.domain) tags.push(job.domain);
-
-    const descriptionLower = job.short_description?.toLowerCase() || '';
-    const commonSkills = ['React', 'Node.js', 'Python', 'Java', 'TypeScript', 'JavaScript', 'SQL', 'AWS', 'Docker', 'Kubernetes'];
-
-    commonSkills.forEach(skill => {
-      if (descriptionLower.includes(skill.toLowerCase()) && tags.length < 8) {
-        tags.push(skill.toUpperCase());
-      }
-    });
-
-    return tags.slice(0, 8);
-  };
-
-  const skillTags = getSkillTags();
+  const skillTags = job.skills || [];
   const postedDaysAgo = Math.floor((Date.now() - new Date(job.posted_date).getTime()) / (1000 * 60 * 60 * 24));
 
   return (
@@ -112,7 +96,7 @@ export const JobCard: React.FC<JobCardProps> = ({
       onClick={handleCardClick}
       className="bg-white dark:bg-dark-100 rounded-xl border border-gray-200 dark:border-dark-300 hover:border-blue-400 dark:hover:border-neon-cyan-500 hover:shadow-lg transition-all duration-300 cursor-pointer overflow-hidden"
     >
-      <div className="p-5">
+      <div className="p-3">
         <div className="flex items-start space-x-4">
           {/* Company Logo */}
           <div className="flex-shrink-0 w-14 h-14 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-300 flex items-center justify-center p-2">
@@ -149,38 +133,40 @@ export const JobCard: React.FC<JobCardProps> = ({
                 </p>
               </div>
 
-              {/* Upload Resume Progress */}
-              <div className="flex-shrink-0 relative">
-                <svg className="w-12 h-12 transform -rotate-90">
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r="20"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    fill="none"
-                    className="text-gray-200 dark:text-dark-300"
-                  />
-                  <circle
-                    cx="24"
-                    cy="24"
-                    r="20"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    fill="none"
-                    strokeDasharray={`${2 * Math.PI * 20}`}
-                    strokeDashoffset={`${2 * Math.PI * 20 * (1 - 0.2)}`}
-                    className="text-orange-500 dark:text-orange-400"
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">20%</span>
+                {/* Commission Badge */}
+              {job.user_has_applied && job.commission_percentage && job.commission_percentage > 0 && (
+                <div className="flex-shrink-0 relative">
+                  <svg className="w-10 h-10 transform -rotate-90">
+                    <circle
+                      cx="20"
+                      cy="20"
+                      r="16"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      fill="none"
+                      className="text-gray-200 dark:text-dark-300"
+                    />
+                    <circle
+                      cx="20"
+                      cy="20"
+                      r="16"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      fill="none"
+                      strokeDasharray={`${2 * Math.PI * 16}`}
+                      strokeDashoffset={`${2 * Math.PI * 16 * (1 - job.commission_percentage / 100)}`}
+                      className={job.user_application_method === 'auto' ? 'text-green-500 dark:text-green-400' : 'text-blue-500 dark:text-blue-400'}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-gray-700 dark:text-gray-300">{Math.round(job.commission_percentage)}%</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Job Details */}
-            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-600 dark:text-gray-400 mb-3">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mb-2">
               <div className="flex items-center space-x-1">
                 <MapPin className="w-3.5 h-3.5" />
                 <span>{job.location_city || job.location_type}</span>
@@ -202,74 +188,91 @@ export const JobCard: React.FC<JobCardProps> = ({
             </div>
 
             {/* Skill Tags */}
-            <div className="flex flex-wrap gap-2 mb-4">
-              {skillTags.map((tag, index) => (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {skillTags.slice(0, 6).map((tag, index) => (
                 <span
                   key={index}
-                  className="px-2.5 py-1 bg-gray-100 dark:bg-dark-200 text-gray-700 dark:text-gray-300 rounded-md text-xs font-medium border border-gray-200 dark:border-dark-300"
+                  className="px-2 py-0.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 rounded text-[11px] font-medium border border-blue-200 dark:border-blue-700/50"
                 >
                   {tag}
                 </span>
               ))}
+              {skillTags.length > 6 && (
+                <span className="px-2 py-0.5 bg-gray-100 dark:bg-dark-200 text-gray-600 dark:text-gray-400 rounded text-[11px] font-medium">
+                  +{skillTags.length - 6}
+                </span>
+              )}
             </div>
 
             {/* Actions Row */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5">
                 {job.has_referral && (
-                  <span className="px-2.5 py-1 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-md text-xs font-semibold flex items-center animate-pulse">
-                    <Users className="w-3 h-3 mr-1" />
+                  <span className="px-2 py-0.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded text-[10px] font-semibold flex items-center animate-pulse">
+                    <Users className="w-2.5 h-2.5 mr-0.5" />
                     Referral
                   </span>
                 )}
                 {job.ai_polished && (
-                  <span className="px-2.5 py-1 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 text-purple-700 dark:text-purple-300 rounded-md text-xs font-medium flex items-center border border-purple-200 dark:border-purple-700">
-                    <Sparkles className="w-3 h-3 mr-1" />
-                    AI Enhanced
+                  <span className="px-2 py-0.5 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/40 dark:to-pink-900/40 text-purple-700 dark:text-purple-300 rounded text-[10px] font-medium flex items-center border border-purple-200 dark:border-purple-700">
+                    <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                    AI
                   </span>
                 )}
-                <span className="text-xs text-gray-500 dark:text-gray-500">
-                  {postedDaysAgo === 0 ? 'Posted today' : `${postedDaysAgo} days ago`}
+                <span className="text-[11px] text-gray-500 dark:text-gray-500">
+                  {postedDaysAgo === 0 ? 'Today' : `${postedDaysAgo}d ago`}
                 </span>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1.5">
                 <button
                   onClick={handleBookmark}
-                  className={`p-2 rounded-lg transition-colors ${
+                  className={`p-1.5 rounded-lg transition-colors ${
                     isBookmarked
                       ? 'bg-blue-100 dark:bg-neon-cyan-500/20 text-blue-600 dark:text-neon-cyan-400'
                       : 'bg-gray-100 dark:bg-dark-200 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-300'
                   }`}
                   aria-label="Bookmark"
                 >
-                  <Bookmark className="w-4 h-4" fill={isBookmarked ? 'currentColor' : 'none'} />
+                  <Bookmark className="w-3.5 h-3.5" fill={isBookmarked ? 'currentColor' : 'none'} />
                 </button>
                 <button
                   onClick={handleFavorite}
-                  className={`p-2 rounded-lg transition-colors ${
+                  className={`p-1.5 rounded-lg transition-colors ${
                     isFavorited
                       ? 'bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400'
                       : 'bg-gray-100 dark:bg-dark-200 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-300'
                   }`}
                   aria-label="Favorite"
                 >
-                  <Heart className="w-4 h-4" fill={isFavorited ? 'currentColor' : 'none'} />
+                  <Heart className="w-3.5 h-3.5" fill={isFavorited ? 'currentColor' : 'none'} />
                 </button>
                 <button
                   onClick={handleCopy}
-                  className="p-2 rounded-lg bg-gray-100 dark:bg-dark-200 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-300 transition-colors"
+                  className="p-1.5 rounded-lg bg-gray-100 dark:bg-dark-200 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-dark-300 transition-colors"
                   aria-label="Copy link"
                 >
-                  <Copy className="w-4 h-4" />
+                  <Copy className="w-3.5 h-3.5" />
                 </button>
-                <button
-                  onClick={handleApplyClick}
-                  className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-500 dark:to-neon-cyan-500 hover:from-purple-700 hover:to-blue-700 dark:hover:from-purple-600 dark:hover:to-neon-cyan-600 text-white rounded-lg text-sm font-semibold transition-all duration-200 flex items-center space-x-1 shadow-md hover:shadow-lg"
-                >
-                  <span>APPLIED</span>
-                </button>
+                {job.user_has_applied ? (
+                  <div className="flex items-center space-x-2">
+                    <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center space-x-1 ${
+                      job.user_application_method === 'auto'
+                        ? 'bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-700 dark:text-green-300 border border-green-300 dark:border-green-700'
+                        : 'bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700'
+                    }`}>
+                      <span>{job.user_application_method === 'auto' ? 'AUTO APPLIED' : 'APPLIED'}</span>
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleApplyClick}
+                    className="px-4 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-500 dark:to-neon-cyan-500 hover:from-purple-700 hover:to-blue-700 dark:hover:from-purple-600 dark:hover:to-neon-cyan-600 text-white rounded-lg text-sm font-semibold transition-all duration-200 shadow-md hover:shadow-lg"
+                  >
+                    Apply Now
+                  </button>
+                )}
               </div>
             </div>
           </div>

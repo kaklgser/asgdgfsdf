@@ -258,6 +258,50 @@ class JobsService {
     }
   }
 
+  async enrichJobsWithApplicationStatus(jobs: JobListing[]): Promise<JobListing[]> {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session || !jobs.length) return jobs;
+
+      const jobIds = jobs.map(job => job.id);
+
+      const { data: applications } = await supabase
+        .from('user_job_applications')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .in('job_listing_id', jobIds);
+
+      if (!applications) return jobs;
+
+      const applicationMap = new Map(
+        applications.map(app => [app.job_listing_id, app])
+      );
+
+      return jobs.map(job => {
+        const app = applicationMap.get(job.id);
+        if (!app) return job;
+
+        return {
+          ...job,
+          user_has_applied: true,
+          user_application_method: app.application_method,
+          user_application_date: app.application_date,
+          user_application_status: app.status
+        };
+      });
+    } catch (error) {
+      console.error('Error enriching jobs with application status:', error);
+      return jobs;
+    }
+  }
+
+  parseSkills(job: JobListing): string[] {
+    if (job.skills && Array.isArray(job.skills)) {
+      return job.skills.slice(0, 8);
+    }
+    return [];
+  }
+
   async getJobListings(filters: JobFilters = {}, limit = 20, offset = 0): Promise<{
     jobs: JobListing[];
     total: number;
@@ -333,13 +377,16 @@ class JobsService {
         return await fetchJobListings(filters, limit, offset);
       }
 
+      // Enrich jobs with application status
+      const enrichedJobs = await this.enrichJobsWithApplicationStatus(jobs);
+
       const total = count || 0;
       const hasMore = offset + limit < total;
       const totalPages = Math.ceil(total / limit);
       const currentPage = Math.floor(offset / limit) + 1;
 
       return {
-        jobs,
+        jobs: enrichedJobs,
         total,
         hasMore,
         totalPages,
