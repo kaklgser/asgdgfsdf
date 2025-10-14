@@ -52,7 +52,7 @@ export const JobCard: React.FC<JobCardProps> = ({
       onShowAuth();
       return;
     }
-   navigate(/jobs/${job.id}/apply);
+    navigate(`/jobs/${job.id}/apply`);
   };
 
   const skillTags = job.skills || [];
