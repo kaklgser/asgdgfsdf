@@ -447,7 +447,7 @@ export const JobPreferencesOnboardingModal: React.FC<JobPreferencesOnboardingMod
             >
               Next
             </button>
-          ) : (
+                   ) : (
             <button
               onClick={handleComplete}
               disabled={loading || preferredModes.length === 0}
@@ -466,6 +466,7 @@ export const JobPreferencesOnboardingModal: React.FC<JobPreferencesOnboardingMod
               )}
             </button>
           )}
+
         </div>
       </motion.div>
     </div>
