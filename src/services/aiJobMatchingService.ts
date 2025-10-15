@@ -211,37 +211,39 @@ Return only the JSON array, no text, no markdown.`;
 
   /**
    * Save recommendations to Supabase
+   * FIXED: Uses upsert to handle duplicate key constraint
    */
   private async saveRecommendations(
     userId: string,
     recommendations: JobRecommendation[]
   ): Promise<void> {
     try {
-      // Delete old recommendations for this user
-      await supabase
-        .from('ai_job_recommendations')
-        .delete()
-        .eq('user_id', userId);
-
-      // Insert new recommendations
+      // Prepare records for upsert
       const records = recommendations.map((rec) => ({
         user_id: userId,
         job_id: rec.job_id,
         match_score: rec.match_score,
-        match_reason: rec.reason,
+        match_reason: rec.match_reason,
         skills_matched: rec.skills_matched,
         location_match: rec.location_match,
         year_match: rec.year_match,
+        is_dismissed: false, // Reset dismissed status on refresh
       }));
 
+      // Use upsert to handle duplicates automatically
       const { error } = await supabase
         .from('ai_job_recommendations')
-        .insert(records);
+        .upsert(records, {
+          onConflict: 'user_id,job_id', // Specify the unique constraint columns
+          ignoreDuplicates: false, // Update existing records instead of ignoring
+        });
 
       if (error) {
         console.error('Error saving recommendations:', error);
         throw error;
       }
+
+      console.log(`Successfully saved ${records.length} recommendations for user ${userId}`);
     } catch (error) {
       console.error('Error in saveRecommendations:', error);
       throw error;
