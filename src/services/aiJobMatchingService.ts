@@ -173,7 +173,7 @@ Return only the JSON array, no text, no markdown.`;
           'X-Title': 'PrimoBoost AI',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.0-flash-exp:free',
+          model: 'google/gemini-2.5',
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: userPrompt },
