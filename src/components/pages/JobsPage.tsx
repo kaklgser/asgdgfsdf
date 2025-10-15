@@ -288,22 +288,25 @@ export const JobsPage: React.FC<JobsPageProps> = ({
                   )}
                 </div>
               </button>
-
               <button
                 onClick={handleRefreshRecommendations}
                 disabled={loadingRecommendations}
-                className="px-4 py-3 rounded-xl font-semibold bg-white dark:bg-dark-100 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-dark-300 hover:scale-105 transition-all shadow-lg disabled:opacity-50"
+                className="px-4 py-3 rounded-xl font-semibold bg-white dark:bg-dark-100 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-dark-300 hover:scale-105 transition-all shadow-lg disabled:opacity-50 flex items-center space-x-2"
+                title="Refresh AI recommendations"
               >
                 <RefreshCw className={`w-5 h-5 ${loadingRecommendations ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
               </button>
 
               <button
                 onClick={() => setShowOnboarding(true)}
-                className="px-4 py-3 rounded-xl font-semibold bg-white dark:bg-dark-100 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-dark-300 hover:scale-105 transition-all shadow-lg"
+                className="px-4 py-3 rounded-xl font-semibold bg-white dark:bg-dark-100 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-dark-300 hover:scale-105 transition-all shadow-lg flex items-center space-x-2"
                 title="Update preferences"
               >
                 ⚙️
+                <span className="hidden sm:inline">Preferences</span>
               </button>
+
             </div>
           )}
         </div>
