@@ -1,7 +1,6 @@
 // src/services/jobsService.ts
 import { supabase } from '../lib/supabaseClient';
 import { JobListing, JobFilters, AutoApplyResult, ApplicationHistory, OptimizedResume } from '../types/jobs';
-import { sampleJobs, fetchJobListings } from './sampleJobsData';
 import { ResumeData } from '../types/resume';
 import { exportToPDF } from '../utils/exportUtils';
 
@@ -189,14 +188,13 @@ class JobsService {
 
       if (error) {
         console.error('Error fetching job listing:', error);
-        return sampleJobs.find(job => job.id === jobId) || null;
+        throw new Error(`Failed to fetch job: ${error.message}`);
       }
 
-      if (job) return job;
-      return sampleJobs.find(job => job.id === jobId) || null;
+      return job;
     } catch (error) {
       console.error('Error in getJobListingById:', error);
-      return sampleJobs.find(job => job.id === jobId) || null;
+      throw error;
     }
   }
 
@@ -319,67 +317,49 @@ class JobsService {
 
       if (error) {
         console.error('JobsService: Database error:', error);
-        console.log('JobsService: Falling back to sample data');
-        return await fetchJobListings(filters, limit, offset);
+        throw new Error(`Failed to fetch jobs: ${error.message}`);
       }
 
       console.log(`JobsService: Fetched ${jobs?.length || 0} jobs from database (total: ${count})`);
-
-      // If no jobs found in database, fall back to sample data
-      if (!jobs || jobs.length === 0) {
-        console.log('JobsService: No jobs in database, using sample data');
-        return await fetchJobListings(filters, limit, offset);
-      }
 
       const total = count || 0;
       const hasMore = offset + limit < total;
 
       return {
-        jobs,
+        jobs: jobs || [],
         total,
         hasMore
       };
     } catch (error) {
       console.error('JobsService: Error fetching job listings:', error);
-      console.log('JobsService: Falling back to sample data');
-      return await fetchJobListings(filters, limit, offset);
+      throw error;
     }
   }
+
   // Get all active jobs (used for AI matching)
-async getAllJobs(): Promise<JobListing[]> {
-  try {
-    console.log('JobsService: Fetching all jobs for AI matching...');
+  async getAllJobs(): Promise<JobListing[]> {
+    try {
+      console.log('JobsService: Fetching all jobs for AI matching...');
 
-    // Fetch all active jobs with a reasonable limit
-    const { data: jobs, error } = await Bolt Database
-      .from('job_listings')
-      .select('*')
-      .eq('is_active', true)
-      .order('posted_date', { ascending: false })
-      .limit(1000); // Reasonable limit to prevent memory issues
+      const { data: jobs, error } = await supabase
+        .from('job_listings')
+        .select('*')
+        .eq('is_active', true)
+        .order('posted_date', { ascending: false })
+        .limit(1000);
 
-    if (error) {
-      console.error('JobsService: Database error fetching all jobs:', error);
-      console.log('JobsService: Falling back to sample data');
-      return sampleJobs;
+      if (error) {
+        console.error('JobsService: Database error fetching all jobs:', error);
+        throw new Error(`Failed to fetch jobs: ${error.message}`);
+      }
+
+      console.log(`JobsService: Fetched ${jobs?.length || 0} jobs for AI matching`);
+      return jobs || [];
+    } catch (error) {
+      console.error('JobsService: Error fetching all jobs:', error);
+      throw error;
     }
-
-    console.log(`JobsService: Fetched ${jobs?.length || 0} jobs for AI matching`);
-
-    // If no jobs found in database, fall back to sample data
-    if (!jobs || jobs.length === 0) {
-      console.log('JobsService: No jobs in database, using sample data');
-      return sampleJobs;
-    }
-
-    return jobs;
-  } catch (error) {
-    console.error('JobsService: Error fetching all jobs:', error);
-    console.log('JobsService: Falling back to sample data');
-    return sampleJobs;
   }
-}
-
 
   async optimizeResumeForJob(jobId: string, userResumeText?: string): Promise<OptimizedResume> {
     try {
