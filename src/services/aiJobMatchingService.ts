@@ -173,7 +173,7 @@ Return only the JSON array, no text, no markdown.`;
           'X-Title': 'PrimoBoost AI',
         },
         body: JSON.stringify({
-          model: 'deepseek/deepseek-r1:free',
+          model: 'google/gemma-3n-e2b-it:free',
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: userPrompt },
