@@ -45,6 +45,7 @@ export const JobPreferencesOnboardingModal: React.FC<JobPreferencesOnboardingMod
   const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // NEW: Track full loading screen state
   const [error, setError] = useState('');
 
   const [resumeFile, setResumeFile] = useState<File | null>(null);
@@ -117,6 +118,7 @@ export const JobPreferencesOnboardingModal: React.FC<JobPreferencesOnboardingMod
   const handleComplete = async () => {
     if (!user) return;
 
+    setIsProcessing(true); // NEW: Show full loading screen
     setLoading(true);
     setError('');
 
@@ -154,6 +156,7 @@ export const JobPreferencesOnboardingModal: React.FC<JobPreferencesOnboardingMod
       onComplete();
     } catch (err: any) {
       setError(err.message || 'Failed to save preferences');
+      setIsProcessing(false); // NEW: Hide loading screen on error
     } finally {
       setLoading(false);
     }
@@ -162,6 +165,31 @@ export const JobPreferencesOnboardingModal: React.FC<JobPreferencesOnboardingMod
   if (!isOpen) return null;
 
   const renderStep = () => {
+    // NEW: Show loading screen when processing
+    if (isProcessing) {
+      return (
+        <div className="space-y-6 py-16">
+          <div className="text-center">
+            <div className="relative w-28 h-28 mx-auto mb-8">
+              <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-teal-400 rounded-full animate-pulse"></div>
+              <div className="absolute inset-2 bg-white dark:bg-dark-100 rounded-full flex items-center justify-center">
+                <Loader2 className="w-14 h-14 text-green-600 dark:text-green-400 animate-spin" />
+              </div>
+            </div>
+            <h3 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+              Finding Jobs...
+            </h3>
+            <p className="text-lg text-gray-600 dark:text-gray-400 mb-2">
+              Analyzing your preferences and matching with opportunities
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-500">
+              This may take a few moments
+            </p>
+          </div>
+        </div>
+      );
+    }
+
     switch (currentStep) {
       case 1:
         return (
@@ -377,39 +405,42 @@ export const JobPreferencesOnboardingModal: React.FC<JobPreferencesOnboardingMod
         exit={{ opacity: 0, scale: 0.95 }}
         className="bg-white dark:bg-dark-100 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
       >
-        <div className="p-6 border-b border-gray-200 dark:border-dark-300 flex items-center justify-between">
-          <div className="flex-1">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-              Set Up Your Job Preferences
-            </h2>
-            <div className="flex items-center space-x-2 mt-2">
-              {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
-                <div
-                  key={step}
-                  className={`h-2 flex-1 rounded-full transition-colors ${
-                    step <= currentStep
-                      ? 'bg-blue-500'
-                      : 'bg-gray-200 dark:bg-dark-300'
-                  }`}
-                />
-              ))}
+        {/* Header - Hide when processing */}
+        {!isProcessing && (
+          <div className="p-6 border-b border-gray-200 dark:border-dark-300 flex items-center justify-between">
+            <div className="flex-1">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                Set Up Your Job Preferences
+              </h2>
+              <div className="flex items-center space-x-2 mt-2">
+                {Array.from({ length: totalSteps }, (_, i) => i + 1).map((step) => (
+                  <div
+                    key={step}
+                    className={`h-2 flex-1 rounded-full transition-colors ${
+                      step <= currentStep
+                        ? 'bg-blue-500'
+                        : 'bg-gray-200 dark:bg-dark-300'
+                    }`}
+                  />
+                ))}
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Step {currentStep} of {totalSteps}
+              </p>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              Step {currentStep} of {totalSteps}
-            </p>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-dark-200 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-dark-200 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-          </button>
-        </div>
+        )}
 
         <div className="p-8">
           <AnimatePresence mode="wait">
             <motion.div
-              key={currentStep}
+              key={isProcessing ? 'processing' : currentStep}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
@@ -418,7 +449,7 @@ export const JobPreferencesOnboardingModal: React.FC<JobPreferencesOnboardingMod
             </motion.div>
           </AnimatePresence>
 
-          {error && (
+          {error && !isProcessing && (
             <div className="mt-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start space-x-3">
               <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
               <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
@@ -426,48 +457,41 @@ export const JobPreferencesOnboardingModal: React.FC<JobPreferencesOnboardingMod
           )}
         </div>
 
-        <div className="p-6 border-t border-gray-200 dark:border-dark-300 flex items-center justify-between">
-          {currentStep > 1 && (
-            <button
-              onClick={handleBack}
-              disabled={loading}
-              className="px-6 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-200 rounded-lg transition-colors disabled:opacity-50"
-            >
-              Back
-            </button>
-          )}
+        {/* Footer - Hide when processing */}
+        {!isProcessing && (
+          <div className="p-6 border-t border-gray-200 dark:border-dark-300 flex items-center justify-between">
+            {currentStep > 1 && (
+              <button
+                onClick={handleBack}
+                disabled={loading}
+                className="px-6 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-dark-200 rounded-lg transition-colors disabled:opacity-50"
+              >
+                Back
+              </button>
+            )}
 
-          <div className="flex-1" />
+            <div className="flex-1" />
 
-          {currentStep < totalSteps ? (
-            <button
-              onClick={handleNext}
-              disabled={loading || (currentStep === 1 && !resumeFile)}
-              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
-            >
-              Next
-            </button>
-                   ) : (
-            <button
-              onClick={handleComplete}
-              disabled={loading || preferredModes.length === 0}
-              className="px-8 py-3 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center space-x-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Finding Jobs...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Complete Setup</span>
-                </>
-              )}
-            </button>
-          )}
-
-        </div>
+            {currentStep < totalSteps ? (
+              <button
+                onClick={handleNext}
+                disabled={loading || (currentStep === 1 && !resumeFile)}
+                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                onClick={handleComplete}
+                disabled={loading || preferredModes.length === 0}
+                className="px-8 py-3 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg flex items-center space-x-2"
+              >
+                <CheckCircle2 className="w-5 h-5" />
+                <span>Complete Setup</span>
+              </button>
+            )}
+          </div>
+        )}
       </motion.div>
     </div>
   );
