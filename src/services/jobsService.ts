@@ -345,6 +345,41 @@ class JobsService {
       return await fetchJobListings(filters, limit, offset);
     }
   }
+  // Get all active jobs (used for AI matching)
+async getAllJobs(): Promise<JobListing[]> {
+  try {
+    console.log('JobsService: Fetching all jobs for AI matching...');
+
+    // Fetch all active jobs with a reasonable limit
+    const { data: jobs, error } = await Bolt Database
+      .from('job_listings')
+      .select('*')
+      .eq('is_active', true)
+      .order('posted_date', { ascending: false })
+      .limit(1000); // Reasonable limit to prevent memory issues
+
+    if (error) {
+      console.error('JobsService: Database error fetching all jobs:', error);
+      console.log('JobsService: Falling back to sample data');
+      return sampleJobs;
+    }
+
+    console.log(`JobsService: Fetched ${jobs?.length || 0} jobs for AI matching`);
+
+    // If no jobs found in database, fall back to sample data
+    if (!jobs || jobs.length === 0) {
+      console.log('JobsService: No jobs in database, using sample data');
+      return sampleJobs;
+    }
+
+    return jobs;
+  } catch (error) {
+    console.error('JobsService: Error fetching all jobs:', error);
+    console.log('JobsService: Falling back to sample data');
+    return sampleJobs;
+  }
+}
+
 
   async optimizeResumeForJob(jobId: string, userResumeText?: string): Promise<OptimizedResume> {
     try {
