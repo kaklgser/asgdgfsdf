@@ -256,11 +256,13 @@ class JobsService {
     }
   }
 
-  async getJobListings(filters: JobFilters = {}, limit = 20, offset = 0): Promise<{
-    jobs: JobListing[];
-    total: number;
-    hasMore: boolean;
-  }> {
+async getJobListings(filters: JobFilters = {}, limit = 20, offset = 0): Promise<{
+  jobs: JobListing[];
+  total: number;
+  hasMore: boolean;
+  totalPages: number;
+}> {
+
     try {
       console.log('JobsService: Fetching job listings from database with filters:', filters);
 
@@ -322,14 +324,17 @@ class JobsService {
 
       console.log(`JobsService: Fetched ${jobs?.length || 0} jobs from database (total: ${count})`);
 
-      const total = count || 0;
-      const hasMore = offset + limit < total;
+     const total = count || 0;
+const hasMore = offset + limit < total;
+const totalPages = Math.ceil(total / limit);
 
-      return {
-        jobs: jobs || [],
-        total,
-        hasMore
-      };
+return {
+  jobs: jobs || [],
+  total,
+  hasMore,
+  totalPages
+};
+
     } catch (error) {
       console.error('JobsService: Error fetching job listings:', error);
       throw error;
