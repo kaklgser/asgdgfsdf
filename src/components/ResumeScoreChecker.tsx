@@ -500,7 +500,34 @@ if (hasScoreCheckCredits) {
                       </div>
                     )}
 
-                    {/* Removed Job Description Section */}
+                    {scoringMode === 'jd_based' && (
+                      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden dark:bg-dark-100 dark:border-dark-300 dark:shadow-dark-xl">
+                        <div className="bg-gradient-to-r from-green-50 to-teal-50 p-6 border-b border-gray-200 dark:from-dark-200 dark:to-dark-300 dark:border-dark-400">
+                          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center">
+                            <FileText className="w-5 h-5 mr-2 text-green-600 dark:text-green-400" />
+                            Job Description <span className="text-red-500 ml-1">*</span>
+                          </h2>
+                          <p className="text-gray-600 dark:text-gray-300 mt-1">Paste the complete job description for accurate matching</p>
+                        </div>
+                        <div className="p-6">
+                          <textarea
+                            value={jobDescription}
+                            onChange={(e) => setJobDescription(e.target.value)}
+                            placeholder="Paste the full job description here including responsibilities, requirements, qualifications, and benefits..."
+                            rows={8}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 resize-y min-h-[200px] dark:bg-dark-200 dark:border-dark-300 dark:text-gray-100 dark:placeholder-gray-400"
+                          />
+                          <div className="flex items-center justify-between mt-2">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                              Required for JD-based scoring and analysis
+                            </p>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">
+                              {jobDescription.length} characters
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="text-center">
                       <button
