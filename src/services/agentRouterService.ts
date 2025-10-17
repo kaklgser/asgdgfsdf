@@ -171,13 +171,28 @@ class AgentRouterService {
       githubUrl = '',
     } = params;
 
+    // Auto-condense if too long
+    let processedResumeText = resumeText;
     if (resumeText.length > MAX_INPUT_LENGTH) {
-      throw new Error(`Input too long. Resume text exceeds ${MAX_INPUT_LENGTH} characters. Please shorten your input.`);
+      console.log(`Resume too long (${resumeText.length} chars). Auto-condensing...`);
+      try {
+        processedResumeText = await this.condenseResumeText({
+          resumeText,
+          userType,
+          targetCharLimit: 45000, // Safe margin
+        });
+        console.log(`Resume condensed from ${resumeText.length} to ${processedResumeText.length} characters`);
+      } catch (condenseError) {
+        console.error('Failed to condense resume with AI:', condenseError);
+        // Fallback to smart truncation
+        processedResumeText = this.smartTruncateResume(resumeText, 45000);
+        console.log(`Fallback truncation: ${processedResumeText.length} characters`);
+      }
     }
 
     const systemPrompt = this.getSystemPromptForUserType(userType);
     const userPrompt = this.getUserPromptForEnrichment({
-      resumeText,
+      resumeText: processedResumeText,
       userType,
       targetRole,
       name,
@@ -205,6 +220,87 @@ class AgentRouterService {
 
     const content = response.choices[0].message.content.trim();
     return this.parseAndValidateJSON(content);
+  }
+
+  async condenseResumeText(params: {
+    resumeText: string;
+    userType: 'fresher' | 'student' | 'experienced';
+    targetCharLimit?: number;
+  }): Promise<string> {
+    const { resumeText, userType, targetCharLimit = 45000 } = params;
+
+    const prompt = `You are an expert resume optimizer. Your task is to condense a lengthy resume while preserving ALL critical information.
+
+Original Resume (${resumeText.length} characters):
+${resumeText}
+
+User Type: ${userType}
+Target Length: Under ${targetCharLimit} characters
+
+CRITICAL REQUIREMENTS:
+1. PRESERVE ALL: Contact information, names, dates, company names, job titles, education details
+2. KEEP: All technical skills, certifications, and key achievements
+3. CONDENSE: Remove redundant descriptions, verbose language, and repetitive points
+4. OPTIMIZE: Use concise bullet points and remove filler words
+5. MAINTAIN: Professional tone and readability
+6. PRIORITIZE: Most recent and relevant experience
+
+Your goal: Reduce length to under ${targetCharLimit} characters while keeping the resume comprehensive and impactful.
+
+Return ONLY the condensed resume text, no explanations or markdown formatting.`;
+
+    const response = await this.safeFetch(
+      [{ role: 'user', content: prompt }],
+      {
+        temperature: 0.3, // Lower temperature for more focused output
+        maxTokens: 4000,
+      }
+    );
+
+    const condensedText = response.choices[0].message.content.trim();
+    
+    // Verify it's actually shorter
+    if (condensedText.length >= resumeText.length) {
+      // AI didn't condense, do smart truncation
+      return this.smartTruncateResume(resumeText, targetCharLimit);
+    }
+
+    return condensedText;
+  }
+
+  private smartTruncateResume(resumeText: string, targetLength: number): string {
+    // Fallback: Extract key sections using smart truncation
+    const sections = {
+      contact: '',
+      summary: '',
+      experience: '',
+      education: '',
+      skills: ''
+    };
+
+    // Try to extract contact info (first 500 chars usually)
+    sections.contact = resumeText.substring(0, 500);
+
+    // Look for key section markers
+    const experienceMatch = resumeText.match(/(?:experience|work history|employment)([\s\S]{0,10000})/i);
+    if (experienceMatch) {
+      sections.experience = experienceMatch[1].substring(0, 8000);
+    }
+
+    const educationMatch = resumeText.match(/(?:education|academic)([\s\S]{0,3000})/i);
+    if (educationMatch) {
+      sections.education = educationMatch[1].substring(0, 2000);
+    }
+
+    const skillsMatch = resumeText.match(/(?:skills|technical skills|competencies)([\s\S]{0,2000})/i);
+    if (skillsMatch) {
+      sections.skills = skillsMatch[1].substring(0, 1500);
+    }
+
+    // Combine sections
+    const truncated = `${sections.contact}\n\nEXPERIENCE\n${sections.experience}\n\nEDUCATION\n${sections.education}\n\nSKILLS\n${sections.skills}`;
+
+    return truncated.substring(0, targetLength);
   }
 
   async generateAboutSection(params: {
