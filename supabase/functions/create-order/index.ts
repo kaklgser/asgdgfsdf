@@ -339,6 +339,11 @@ serve(async (req) => {
         finalAmount = originalPrice - discountAmount;
         appliedCoupon = 'vnk50';
       }
+      else if (normalizedCoupon === 'diwali' && planId === 'achiever_plan') {
+  discountAmount = Math.floor(originalPrice * 0.9); // 90% off on current price
+  finalAmount = originalPrice - discountAmount;    // ₹3200 * 0.1 = ₹320
+  appliedCoupon = 'diwali';
+}
       else {
         // If coupon is not recognized or not applicable to the plan, do not apply discount
         // and return an error message.
