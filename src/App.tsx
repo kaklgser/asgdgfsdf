@@ -34,6 +34,7 @@ import { JobUploadForm } from './components/admin/JobUploadForm';
 import { AdminJobsPage } from './components/admin/AdminJobsPage';
 import { JobEditPage } from './components/admin/JobEditPage';
 import { AdminUsersPage } from './components/admin/AdminUsersPage';
+import { PortfolioBuilderPage } from './components/pages/PortfolioBuilderPage';
 
 function App() {
   const { isAuthenticated, user, markProfilePromptSeen, isLoading } = useAuth();
@@ -437,6 +438,7 @@ function App() {
         <Route path="/score-checker" element={<ResumeScoreChecker {...commonPageProps} />} />
         <Route path="/guided-builder" element={<GuidedResumeBuilder {...commonPageProps} />} />
         <Route path="/linkedin-generator" element={<LinkedInMessageGenerator {...commonPageProps} />} />
+        <Route path="/portfolio-builder" element={<PortfolioBuilderPage isAuthenticated={isAuthenticated} onShowAuth={handleShowAuth} />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/tutorials" element={<Tutorials />} />
