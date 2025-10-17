@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Loader2, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, ExternalLink, AlertTriangle } from 'lucide-react';
 import { portfolioService } from '../../services/portfolioService';
 import { UserType, TemplateId, TEMPLATE_CONFIGS } from '../../types/portfolio';
 
@@ -7,6 +7,9 @@ interface PortfolioBuilderPageProps {
   isAuthenticated: boolean;
   onShowAuth: () => void;
 }
+
+const MAX_CHARACTERS = 50000;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
   isAuthenticated,
@@ -22,15 +25,46 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
   const [error, setError] = useState('');
   const [portfolioId, setPortfolioId] = useState('');
   const [deploymentUrl, setDeploymentUrl] = useState('');
+  const [charCount, setCharCount] = useState(0);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > MAX_FILE_SIZE) {
         setError('File size must be less than 5MB');
         return;
       }
+
+      // Validate file type
+      const allowedTypes = [
+        'text/plain',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
+        setError('Please upload a valid file (TXT, PDF, DOC, DOCX)');
+        return;
+      }
+
       setResumeFile(file);
+      setResumeText(''); // Clear text if file is uploaded
+      setCharCount(0);
+      setError('');
+    }
+  };
+
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    const count = text.length;
+    
+    setResumeText(text);
+    setCharCount(count);
+    
+    if (count > MAX_CHARACTERS) {
+      setError(`Text exceeds ${MAX_CHARACTERS.toLocaleString()} characters. Current: ${count.toLocaleString()}`);
+    } else {
       setError('');
     }
   };
@@ -43,6 +77,12 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
 
     if (!resumeText && !resumeFile) {
       setError('Please provide resume text or upload a file');
+      return;
+    }
+
+    // Check character limit for pasted text
+    if (resumeText && resumeText.length > MAX_CHARACTERS) {
+      setError(`Resume text exceeds ${MAX_CHARACTERS.toLocaleString()} characters. Please shorten your input to ${MAX_CHARACTERS.toLocaleString()} characters or less.`);
       return;
     }
 
@@ -65,7 +105,16 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
       setStep('success');
     } catch (err: any) {
       console.error('Error creating portfolio:', err);
-      setError(err.message || 'Failed to create portfolio. Please try again.');
+      let errorMessage = err.message || 'Failed to create portfolio. Please try again.';
+      
+      // Handle specific error cases
+      if (errorMessage.includes('exceeds 50000 characters')) {
+        errorMessage = 'Your resume is too long. Please upload a shorter version (max 50,000 characters) or paste a condensed version of your resume.';
+      } else if (errorMessage.includes('Invalid JSON')) {
+        errorMessage = 'There was an issue processing your resume. Please try uploading a different format or paste the text directly.';
+      }
+      
+      setError(errorMessage);
       setStep('upload');
     } finally {
       setIsLoading(false);
@@ -94,6 +143,14 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getCharCountColor = () => {
+    const percentage = (charCount / MAX_CHARACTERS) * 100;
+    if (percentage >= 100) return 'text-red-600';
+    if (percentage >= 80) return 'text-orange-600';
+    if (percentage >= 60) return 'text-yellow-600';
+    return 'text-gray-600';
   };
 
   return (
@@ -161,6 +218,17 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <h2 className="text-2xl font-semibold mb-6">Upload Your Resume</h2>
 
+            {/* Character Limit Warning */}
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium mb-1">Resume Size Limit</p>
+                  <p>Your resume should be concise and under {MAX_CHARACTERS.toLocaleString()} characters. If your file is too large, try pasting only the essential information (contact, experience, education, skills).</p>
+                </div>
+              </div>
+            </div>
+
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Upload Resume File
@@ -176,7 +244,11 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
                 <label htmlFor="resume-upload" className="cursor-pointer">
                   <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                   <p className="text-sm text-gray-600 mb-2">
-                    {resumeFile ? resumeFile.name : 'Click to upload or drag and drop'}
+                    {resumeFile ? (
+                      <span className="text-green-600 font-medium">{resumeFile.name}</span>
+                    ) : (
+                      'Click to upload or drag and drop'
+                    )}
                   </p>
                   <p className="text-xs text-gray-500">TXT, PDF, DOC, DOCX (Max 5MB)</p>
                 </label>
@@ -192,16 +264,28 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
             </div>
 
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Paste Resume Text
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Paste Resume Text
+                </label>
+                <span className={`text-xs font-medium ${getCharCountColor()}`}>
+                  {charCount.toLocaleString()} / {MAX_CHARACTERS.toLocaleString()} characters
+                </span>
+              </div>
               <textarea
                 value={resumeText}
-                onChange={(e) => setResumeText(e.target.value)}
+                onChange={handleTextChange}
                 placeholder="Paste your resume content or LinkedIn profile..."
                 rows={12}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                  charCount > MAX_CHARACTERS ? 'border-red-500' : 'border-gray-300'
+                }`}
               />
+              {charCount > MAX_CHARACTERS * 0.8 && charCount <= MAX_CHARACTERS && (
+                <p className="mt-2 text-sm text-orange-600">
+                  Warning: You're approaching the character limit
+                </p>
+              )}
             </div>
 
             {error && (
@@ -220,7 +304,7 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
               </button>
               <button
                 onClick={() => setStep('template')}
-                disabled={!resumeText && !resumeFile}
+                disabled={(!resumeText && !resumeFile) || (resumeText && charCount > MAX_CHARACTERS)}
                 className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Continue to Templates
@@ -369,6 +453,7 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
                 setPortfolioId('');
                 setDeploymentUrl('');
                 setError('');
+                setCharCount(0);
               }}
               className="mt-6 text-blue-600 hover:text-blue-700 font-medium"
             >
