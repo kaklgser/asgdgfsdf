@@ -1,10 +1,14 @@
+import { getApiEndpoint } from '../utils/apiConfig';
+
+
 const MAX_INPUT_LENGTH = 50000;
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 1000;
 const REQUEST_TIMEOUT_MS = 30000;
 
 // Use local API endpoints instead of direct AgentRouter calls
-const AI_API_ENDPOINT = '/.netlify/functions/ai-enrich';
+const getAiEndpoint = () => getApiEndpoint('/ai-enrich');
+const getHealthEndpoint = () => getApiEndpoint('/ai-health');
 
 interface AgentRouterMessage {
   role: 'system' | 'user' | 'assistant';
@@ -213,16 +217,14 @@ class AgentRouterService {
       githubUrl,
     });
 
-    const response = await this.safeFetch(
-      [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      {
-        temperature: 0.7,
-        maxTokens: 3000,
-      }
-    );
+const response = await fetch(getAiEndpoint(), {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify(requestBody),
+  signal: controller.signal,
+});
 
     if (!response.choices || response.choices.length === 0) {
       throw new Error('No response from AI service');
