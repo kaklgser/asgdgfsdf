@@ -50,6 +50,8 @@ export const JobsPage: React.FC<JobsPageProps> = ({
   const [hasMore, setHasMore] = useState(false);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCompanies, setTotalCompanies] = useState(0);
+
   const [currentPage, setCurrentPage] = useState(() => {
     const pageParam = searchParams.get('page');
     return pageParam ? Math.max(1, parseInt(pageParam, 10)) : 1;
@@ -142,29 +144,31 @@ export const JobsPage: React.FC<JobsPageProps> = ({
     loadAIRecommendations();
   };
 
-  const loadJobs = useCallback(async (page = 1, newFilters = filters) => {
-    setIsLoading(true);
-    setError(null);
+ const loadJobs = useCallback(async (page = 1, newFilters = filters) => {
+  setIsLoading(true);
+  setError(null);
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 
-    try {
-      const offset = (page - 1) * pageSize;
-      const result = await jobsService.getJobListings(newFilters, pageSize, offset);
+  try {
+    const offset = (page - 1) * pageSize;
+    const result = await jobsService.getJobListings(newFilters, pageSize, offset);
 
-      setJobs(result.jobs);
-      setTotal(result.total);
-      setHasMore(result.hasMore);
-      setTotalPages(result.totalPages);
-      setCurrentPage(page);
+    setJobs(result.jobs);
+    setTotal(result.total);
+    setHasMore(result.hasMore);
+    setTotalPages(result.totalPages);
+    setTotalCompanies(result.totalCompanies); // ADD THIS LINE
+    setCurrentPage(page);
 
-      setSearchParams({ page: page.toString() });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load jobs');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filters, pageSize, setSearchParams]);
+    setSearchParams({ page: page.toString() });
+  } catch (err) {
+    setError(err instanceof Error ? err.message : 'Failed to load jobs');
+  } finally {
+    setIsLoading(false);
+  }
+}, [filters, pageSize, setSearchParams]);
+
 
   useEffect(() => {
     loadJobs(currentPage, filters);
