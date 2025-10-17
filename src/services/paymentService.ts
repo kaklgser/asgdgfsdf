@@ -11,7 +11,7 @@ export interface SubscriptionPlan {
   duration: string;
   optimizations: number;
   scoreChecks: number;
-  linkedinMessages: number; // Changed from typeof Infinity to number
+  linkedinOptimizations: number;
   guidedBuilds: number;
   tag: string;
   tagColor: string;
@@ -67,14 +67,14 @@ export interface Subscription {
   couponUsed: string | null;
   scoreChecksUsed: number;
   scoreChecksTotal: number;
-  linkedinMessagesUsed: number;
-  linkedinMessagesTotal: number;
+  linkedinOptimizationsUsed: number;
+  linkedinOptimizationsTotal: number;
   guidedBuildsUsed: number;
   guidedBuildsTotal: number;
 }
 
 // Credit types map 1:1 with addon_types.type_key and with our internal useCredit API
-type CreditType = 'optimization' | 'score_check' | 'linkedin_messages' | 'guided_build';
+type CreditType = 'optimization' | 'score_check' | 'linkedin_optimizations' | 'guided_build';
 
 // ---------- Service ----------
 class PaymentService {
@@ -89,7 +89,7 @@ class PaymentService {
       duration: 'One-time Purchase',
       optimizations: 100,
       scoreChecks: 100,
-      linkedinMessages: 0,
+      linkedinOptimizations: 0,
       guidedBuilds: 0,
       tag: 'Top Tier',
       tagColor: 'text-purple-800 bg-purple-100',
@@ -112,7 +112,7 @@ class PaymentService {
       duration: 'One-time Purchase',
       optimizations: 50,
       scoreChecks: 50,
-      linkedinMessages: 0,
+      linkedinOptimizations: 0,
       guidedBuilds: 0,
       tag: 'Best Value',
       tagColor: 'text-blue-800 bg-blue-100',
@@ -135,7 +135,7 @@ class PaymentService {
       duration: 'One-time Purchase',
       optimizations: 25,
       scoreChecks: 25,
-      linkedinMessages: 0,
+      linkedinOptimizations: 0,
       guidedBuilds: 0,
       tag: 'Great Start',
       tagColor: 'text-green-800 bg-green-100',
@@ -158,7 +158,7 @@ class PaymentService {
       duration: 'One-time Purchase',
       optimizations: 10,
       scoreChecks: 10,
-      linkedinMessages: 0,
+      linkedinOptimizations: 0,
       guidedBuilds: 0,
       tag: 'Quick Boost',
       tagColor: 'text-yellow-800 bg-yellow-100',
@@ -181,7 +181,7 @@ class PaymentService {
       duration: 'One-time Purchase',
       optimizations: 5,
       scoreChecks: 5,
-      linkedinMessages: 0,
+      linkedinOptimizations: 0,
       guidedBuilds: 0,
       tag: 'Essential',
       tagColor: 'text-red-800 bg-red-100',
@@ -240,8 +240,8 @@ class PaymentService {
       let cumulativeOptimizationsTotal = 0;
       let cumulativeScoreChecksUsed = 0;
       let cumulativeScoreChecksTotal = 0;
-      let cumulativeLinkedinMessagesUsed = 0;
-      let cumulativeLinkedinMessagesTotal = 0;
+      let cumulativeLinkedinOptimizationsUsed = 0;
+      let cumulativeLinkedinOptimizationsTotal = 0;
       let cumulativeGuidedBuildsUsed = 0;
       let cumulativeGuidedBuildsTotal = 0;
 
@@ -259,8 +259,8 @@ class PaymentService {
           cumulativeOptimizationsTotal += Number(sub.optimizations_total ?? 0);
           cumulativeScoreChecksUsed    += Number(sub.score_checks_used   ?? 0);
           cumulativeScoreChecksTotal   += Number(sub.score_checks_total  ?? 0);
-          cumulativeLinkedinMessagesUsed  += Number(sub.linkedin_messages_used  ?? 0);
-          cumulativeLinkedinMessagesTotal += Number(sub.linkedin_messages_total ?? 0);
+          cumulativeLinkedinOptimizationsUsed  += Number(sub.linkedin_optimizations_used  ?? 0);
+          cumulativeLinkedinOptimizationsTotal += Number(sub.linkedin_optimizations_total ?? 0);
           cumulativeGuidedBuildsUsed   += Number(sub.guided_builds_used  ?? 0);
           cumulativeGuidedBuildsTotal  += Number(sub.guided_builds_total ?? 0);
         });
@@ -298,7 +298,7 @@ class PaymentService {
       const aggregatedAddonCredits: Record<string, { total: number; used: number }> = {
         optimization: { total: 0, used: 0 },
         score_check: { total: 0, used: 0 },
-        linkedin_messages: { total: 0, used: 0 },
+        linkedin_optimizations: { total: 0, used: 0 },
         guided_build: { total: 0, used: 0 },
       };
 
@@ -319,12 +319,12 @@ class PaymentService {
 
       const finalOptimizationsTotal   = cumulativeOptimizationsTotal   + aggregatedAddonCredits.optimization.total;
       const finalScoreChecksTotal     = cumulativeScoreChecksTotal     + aggregatedAddonCredits.score_check.total;
-      const finalLinkedinMessagesTotal= cumulativeLinkedinMessagesTotal+ aggregatedAddonCredits.linkedin_messages.total;
+      const finalLinkedinOptimizationsTotal= cumulativeLinkedinOptimizationsTotal+ aggregatedAddonCredits.linkedin_optimizations.total;
       const finalGuidedBuildsTotal    = cumulativeGuidedBuildsTotal    + aggregatedAddonCredits.guided_build.total;
 
       const finalOptimizationsUsed    = cumulativeOptimizationsUsed    + aggregatedAddonCredits.optimization.used;
       const finalScoreChecksUsed      = cumulativeScoreChecksUsed      + aggregatedAddonCredits.score_check.used;
-      const finalLinkedinMessagesUsed = cumulativeLinkedinMessagesUsed + aggregatedAddonCredits.linkedin_messages.used;
+      const finalLinkedinOptimizationsUsed = cumulativeLinkedinOptimizationsUsed + aggregatedAddonCredits.linkedin_optimizations.used;
       const finalGuidedBuildsUsed     = cumulativeGuidedBuildsUsed     + aggregatedAddonCredits.guided_build.used;
 
       // If no plan and no add-ons → no credits
@@ -355,8 +355,8 @@ class PaymentService {
         scoreChecksUsed: finalScoreChecksUsed,
         scoreChecksTotal: finalScoreChecksTotal,
 
-        linkedinMessagesUsed: finalLinkedinMessagesUsed,
-        linkedinMessagesTotal: finalLinkedinMessagesTotal,
+        linkedinOptimizationsUsed: finalLinkedinOptimizationsUsed,
+        linkedinOptimizationsTotal: finalLinkedinOptimizationsTotal,
 
         guidedBuildsUsed: finalGuidedBuildsUsed,
         guidedBuildsTotal: finalGuidedBuildsTotal,
@@ -381,7 +381,7 @@ class PaymentService {
     const dbFieldMap: Record<CreditType, string> = {
       optimization: 'optimizations',
       score_check: 'score_checks',
-      linkedin_messages: 'linkedin_messages',
+      linkedin_optimizations: 'linkedin_optimizations',
       guided_build: 'guided_builds',
     };
     const base = dbFieldMap[creditField];
@@ -434,7 +434,7 @@ class PaymentService {
     const dbCreditFieldMap: Record<CreditType, string> = {
       optimization: 'optimizations',
       score_check: 'score_checks',
-      linkedin_messages: 'linkedin_messages',
+      linkedin_optimizations: 'linkedin_optimizations',
       guided_build: 'guided_builds',
     };
     const dbCreditFieldName = dbCreditFieldMap[creditField];
@@ -514,9 +514,9 @@ class PaymentService {
               totalPropName = 'scoreChecksTotal';
               usedPropName = 'scoreChecksUsed';
               break;
-            case 'linkedin_messages':
-              totalPropName = 'linkedinMessagesTotal';
-              usedPropName = 'linkedinMessagesUsed';
+            case 'linkedin_optimizations':
+              totalPropName = 'linkedinOptimizationsTotal';
+              usedPropName = 'linkedinOptimizationsUsed';
               break;
             case 'guided_build':
               totalPropName = 'guidedBuildsTotal';
@@ -585,9 +585,9 @@ class PaymentService {
             totalPropName = 'scoreChecksTotal';
             usedPropName = 'scoreChecksUsed';
             break;
-          case 'linkedin_messages':
-            totalPropName = 'linkedinMessagesTotal';
-            usedPropName = 'linkedinMessagesUsed';
+          case 'linkedin_optimizations':
+            totalPropName = 'linkedinOptimizationsTotal';
+            usedPropName = 'linkedinOptimizationsUsed';
             break;
           case 'guided_build':
             totalPropName = 'guidedBuildsTotal';
@@ -617,7 +617,7 @@ class PaymentService {
     return this.useCredit(userId, 'score_check');
   }
   async useLinkedInMessage(userId: string) {
-    return this.useCredit(userId, 'linkedin_messages');
+    return this.useCredit(userId, 'linkedin_optimizations');
   }
   async useGuidedBuild(userId: string) {
     return this.useCredit(userId, 'guided_build');
@@ -660,8 +660,8 @@ class PaymentService {
         optimizations_total: freePlan.optimizations,
         score_checks_used: 0,
         score_checks_total: freePlan.scoreChecks,
-        linkedin_messages_used: 0,
-        linkedin_messages_total: freePlan.linkedinMessages,
+        linkedin_optimizations_used: 0,
+        linkedin_optimizations_total: freePlan.linkedinOptimizations,
         guided_builds_used: 0,
         guided_builds_total: freePlan.guidedBuilds,
         payment_id: null,
@@ -959,8 +959,8 @@ class PaymentService {
             optimizations_total: plan.optimizations,
             score_checks_used: 0,
             score_checks_total: plan.scoreChecks,
-            linkedin_messages_used: 0,
-            linkedin_messages_total: plan.linkedinMessages,
+            linkedin_optimizations_used: 0,
+            linkedin_optimizations_total: plan.linkedinOptimizations,
             guided_builds_used: 0,
             guided_builds_total: plan.guidedBuilds,
             payment_id: 'FREE_PLAN_ACTIVATION',

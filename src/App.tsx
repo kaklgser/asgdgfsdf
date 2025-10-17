@@ -8,7 +8,7 @@ import ResumeOptimizer from './components/ResumeOptimizer';
 import { HomePage } from './components/pages/HomePage';
 import GuidedResumeBuilder from './components/GuidedResumeBuilder';
 import { ResumeScoreChecker } from './components/ResumeScoreChecker';
-import { LinkedInMessageGenerator } from './components/LinkedInMessageGenerator';
+import { LinkedInProfileOptimizer } from './components/LinkedInProfileOptimizer';
 import { AboutUs } from './components/pages/AboutUs';
 import { Contact } from './components/pages/Contact';
 import { Tutorials } from './components/pages/Tutorials';
@@ -193,8 +193,8 @@ function App() {
         case 'guided-builder':
           message = '1 Guided Resume Build credit added successfully!';
           break;
-        case 'linkedin-generator':
-          message = 'LinkedIn Message credits added successfully!';
+        case 'linkedin-optimizer':
+          message = 'LinkedIn Profile Optimization credits added successfully!';
           break;
       }
       handleShowAlert('Purchase Complete', message, 'success');
@@ -436,7 +436,7 @@ function App() {
         />
         <Route path="/score-checker" element={<ResumeScoreChecker {...commonPageProps} />} />
         <Route path="/guided-builder" element={<GuidedResumeBuilder {...commonPageProps} />} />
-        <Route path="/linkedin-generator" element={<LinkedInMessageGenerator {...commonPageProps} />} />
+        <Route path="/linkedin-optimizer" element={<LinkedInProfileOptimizer {...commonPageProps} />} />
         <Route path="/about" element={<AboutUs />} />
         <Route path="/contact" element={<Contact />} />
         <Route path="/tutorials" element={<Tutorials />} />
