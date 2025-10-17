@@ -22,7 +22,6 @@ export interface SubscriptionPlan {
   durationInHours: number; // Added this property
 }
 
-
 export interface PaymentData {
   planId: string;
   amount: number;
@@ -73,7 +72,6 @@ export interface Subscription {
   guidedBuildsUsed: number;
   guidedBuildsTotal: number;
 }
-
 
 // Credit types map 1:1 with addon_types.type_key and with our internal useCredit API
 type CreditType = 'optimization' | 'score_check' | 'linkedin_messages' | 'guided_build';
@@ -740,7 +738,6 @@ class PaymentService {
     } else if (normalizedCoupon === 'first500' && planId === 'lite_check') {
       discountAmount = Math.floor(originalPrice * 0.98);
       finalAmount = originalPrice - discountAmount;
-      // appliedCoupon = 'first500'; // This line was causing an error, removed.
     } else if (normalizedCoupon === 'worthyone' && planId === 'career_pro_max') {
       discountAmount = Math.floor(originalPrice * 0.5);
       finalAmount = originalPrice - discountAmount;
@@ -760,6 +757,10 @@ class PaymentService {
       discountAmount = Math.floor(originalPrice * 0.5); // 50% off
       finalAmount = originalPrice - discountAmount;
       message = 'PRIMOBOOST coupon applied! 50% off!';
+    } else if (normalizedCoupon === 'diwali' && planId === 'achiever_plan') {
+      discountAmount = Math.floor(originalPrice * 0.9); // 90% off on ₹3200
+      finalAmount = originalPrice - discountAmount;    // Final price will be ₹320
+      message = 'DIWALI coupon applied! 90% off!';
     } else {
       return { couponApplied: null, discountAmount: 0, finalAmount: originalPrice, error: 'Invalid coupon code or not applicable to selected plan', isValid: false, message: 'Invalid coupon code or not applicable to selected plan' };
     }
@@ -1014,4 +1015,3 @@ class PaymentService {
 }
 
 export const paymentService = new PaymentService();
-
