@@ -4,105 +4,121 @@ if (!OPENROUTER_API_KEY) {
   throw new Error('OpenRouter API key is not configured. Please add VITE_OPENROUTER_API_KEY to your environment variables.');
 }
 
-interface ProfileOptimizationForm {
-  headline: string;
-  about: string;
-  experience: string;
-  skills: string;
-  achievements: string;
-  targetRole: string;
+interface MessageForm {
+  messageType: 'connection' | 'cold-outreach' | 'follow-up' | 'job-inquiry';
+  recipientFirstName: string;
+  recipientLastName: string;
+  recipientCompany: string;
+  recipientJobTitle: string;
+  senderName: string;
+  senderCompany: string;
+  senderRole: string;
+  messagePurpose: string;
+  tone: 'professional' | 'casual' | 'friendly';
+  personalizedContext: string;
   industry: string;
-  tone: 'professional' | 'conversational' | 'ambitious';
-  seniorityLevel: 'entry' | 'mid' | 'senior' | 'executive';
 }
 
-interface OptimizedProfile {
-  headline: {
-    original: string;
-    optimized: string;
-    explanation: string;
-    characterCount: number;
+export const generateLinkedInMessage = async (formData: MessageForm): Promise<string[]> => {
+  const getPromptForMessageType = (type: string) => {
+    const baseContext = `
+RECIPIENT: ${formData.recipientFirstName} ${formData.recipientLastName}, ${formData.recipientJobTitle} at ${formData.recipientCompany}
+SENDER: ${formData.senderName}, ${formData.senderRole}${formData.senderCompany ? ` at ${formData.senderCompany}` : ''}
+PURPOSE: ${formData.messagePurpose}
+TONE: ${formData.tone}
+INDUSTRY: ${formData.industry || 'Not specified'}
+CONTEXT: ${formData.personalizedContext || 'No additional context provided'}`;
+
+    switch (type) {
+      case 'connection':
+        return `You are an expert LinkedIn networking specialist.
+
+${baseContext}
+
+Write 3 different personalized LinkedIn connection request messages.
+
+REQUIREMENTS:
+- Under 200 characters each
+- Professional and ${formData.tone} tone
+- Include one specific detail about them or their company
+- End with clear value proposition
+- Avoid generic templates
+- Make each version distinctly different
+
+CRITICAL: Each message must be under 200 characters (LinkedIn's connection request limit).
+
+Respond with exactly 3 messages, each on a separate line, numbered 1-3.`;
+
+      case 'cold-outreach':
+        return `Act as a LinkedIn sales messaging expert.
+
+${baseContext}
+
+Create 3 different cold outreach messages.
+
+REQUIREMENTS:
+- Maximum 300 characters each
+- Personalize with recipient's background
+- Include one clear call-to-action
+- ${formData.tone} but conversational tone
+- Provide value upfront
+- Make each version have different approach
+
+Respond with exactly 3 messages, each on a separate line, numbered 1-3.`;
+
+      case 'follow-up':
+        return `You are a professional relationship manager.
+
+${baseContext}
+
+Write 3 different LinkedIn follow-up messages.
+
+REQUIREMENTS:
+- Reference previous interaction context
+- Provide new value or update
+- Keep under 250 characters each
+- Include specific next step
+- ${formData.tone} tone
+- Make each version unique
+
+Respond with exactly 3 messages, each on a separate line, numbered 1-3.`;
+
+      case 'job-inquiry':
+        return `Act as a career coach and job search expert.
+
+${baseContext}
+
+Generate 3 different job inquiry LinkedIn messages.
+
+REQUIREMENTS:
+- Express genuine interest in opportunities
+- Highlight relevant skills/experience
+- Professional and ${formData.tone} tone
+- Under 280 characters each
+- Include clear call-to-action
+- Make each version have different angle
+
+Respond with exactly 3 messages, each on a separate line, numbered 1-3.`;
+
+      default:
+        return `You are a LinkedIn messaging specialist.
+
+${baseContext}
+
+Create 3 different professional LinkedIn messages for the specified purpose.
+
+REQUIREMENTS:
+- ${formData.tone} tone
+- Under 250 characters each
+- Personalized and specific
+- Include clear call-to-action
+- Make each version unique
+
+Respond with exactly 3 messages, each on a separate line, numbered 1-3.`;
+    }
   };
-  about: {
-    original: string;
-    optimized: string;
-    explanation: string;
-    characterCount: number;
-  };
-  experience: {
-    original: string;
-    optimized: string;
-    explanation: string;
-  };
-  skills: {
-    original: string;
-    optimized: string[];
-    explanation: string;
-  };
-  achievements: {
-    original: string;
-    optimized: string[];
-    explanation: string;
-  };
-  overallScore: number;
-  keyImprovements: string[];
-}
 
-export const optimizeLinkedInProfile = async (formData: ProfileOptimizationForm): Promise<OptimizedProfile> => {
-  const prompt = `You are a LinkedIn profile optimization expert with deep knowledge of recruiter search algorithms, ATS systems, and professional branding.
-
-PROFILE TO OPTIMIZE:
-Target Role: ${formData.targetRole}
-Industry: ${formData.industry}
-Seniority Level: ${formData.seniorityLevel}
-Desired Tone: ${formData.tone}
-
-Current Headline: ${formData.headline || 'Not provided'}
-Current About Section: ${formData.about || 'Not provided'}
-Experience Details: ${formData.experience || 'Not provided'}
-Skills: ${formData.skills || 'Not provided'}
-Achievements: ${formData.achievements || 'Not provided'}
-
-TASK: Optimize this LinkedIn profile to maximize visibility, engagement, and recruiter interest.
-
-Provide optimization suggestions in the following JSON format:
-
-{
-  "headline": {
-    "optimized": "string (max 220 characters, include role, value prop, keywords)",
-    "explanation": "string (why this headline is effective)"
-  },
-  "about": {
-    "optimized": "string (compelling about section with clear structure, emojis for visual appeal, 300-600 chars)",
-    "explanation": "string (what makes this about section strong)"
-  },
-  "experience": {
-    "optimized": "string (3-5 bullet points with action verbs, metrics, and impact)",
-    "explanation": "string (how these bullets demonstrate value)"
-  },
-  "skills": {
-    "optimized": ["skill1", "skill2", "skill3", "skill4", "skill5", "skill6", "skill7", "skill8", "skill9", "skill10"],
-    "explanation": "string (why these skills matter for the role)"
-  },
-  "achievements": {
-    "optimized": ["achievement1", "achievement2", "achievement3", "achievement4"],
-    "explanation": "string (how achievements differentiate the candidate)"
-  },
-  "overallScore": number (1-100, profile optimization score),
-  "keyImprovements": ["improvement1", "improvement2", "improvement3", "improvement4", "improvement5"]
-}
-
-OPTIMIZATION GUIDELINES:
-1. Headline: Include role + industry keywords + unique value proposition
-2. About: Use storytelling, quantify impact, add visual breaks with emojis, include CTA
-3. Experience: Start with strong action verbs, quantify results with %, $, or numbers
-4. Skills: Mix hard skills (technical) and soft skills (leadership, communication)
-5. Achievements: Highlight awards, recognitions, and measurable wins
-6. Use keywords that recruiters search for in ${formData.industry}
-7. Tone should be ${formData.tone}
-8. Optimize for ${formData.seniorityLevel} level positioning
-
-Respond ONLY with valid JSON. No markdown, no code blocks, just the JSON object.`;
+  const prompt = getPromptForMessageType(formData.messageType);
 
   const maxRetries = 3;
   let retryCount = 0;
@@ -153,60 +169,25 @@ Respond ONLY with valid JSON. No markdown, no code blocks, just the JSON object.
         throw new Error('No response content from OpenRouter API');
       }
 
-      result = result.trim();
-      if (result.startsWith('```json')) {
-        result = result.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-      } else if (result.startsWith('```')) {
-        result = result.replace(/```\n?/g, '');
+      // Parse the numbered messages
+      const messages = result
+        .split('\n')
+        .filter((line: string) => line.trim().match(/^\d+\./))
+        .map((line: string) => line.replace(/^\d+\.\s*/, '').trim())
+        .filter((msg: string) => msg.length > 0);
+
+      if (messages.length === 0) {
+        // Fallback: split by numbers or return the whole response
+        const fallbackMessages = result
+          .split(/\d+\./)
+          .filter((msg: string) => msg.trim().length > 10)
+          .map((msg: string) => msg.trim())
+          .slice(0, 3);
+
+        return fallbackMessages.length > 0 ? fallbackMessages : [result.trim()];
       }
 
-      let optimizationData;
-      try {
-        optimizationData = JSON.parse(result);
-      } catch (parseError) {
-        console.error('Failed to parse JSON response:', result);
-        throw new Error('Invalid JSON response from AI. Please try again.');
-      }
-
-      const optimizedProfile: OptimizedProfile = {
-        headline: {
-          original: formData.headline,
-          optimized: optimizationData.headline?.optimized || formData.headline,
-          explanation: optimizationData.headline?.explanation || 'Optimized for clarity and impact',
-          characterCount: (optimizationData.headline?.optimized || formData.headline).length
-        },
-        about: {
-          original: formData.about,
-          optimized: optimizationData.about?.optimized || formData.about,
-          explanation: optimizationData.about?.explanation || 'Enhanced for engagement',
-          characterCount: (optimizationData.about?.optimized || formData.about).length
-        },
-        experience: {
-          original: formData.experience,
-          optimized: optimizationData.experience?.optimized || formData.experience,
-          explanation: optimizationData.experience?.explanation || 'Strengthened with metrics and action verbs'
-        },
-        skills: {
-          original: formData.skills,
-          optimized: Array.isArray(optimizationData.skills?.optimized)
-            ? optimizationData.skills.optimized
-            : [],
-          explanation: optimizationData.skills?.explanation || 'Curated for role relevance'
-        },
-        achievements: {
-          original: formData.achievements,
-          optimized: Array.isArray(optimizationData.achievements?.optimized)
-            ? optimizationData.achievements.optimized
-            : [],
-          explanation: optimizationData.achievements?.explanation || 'Highlighted measurable accomplishments'
-        },
-        overallScore: optimizationData.overallScore || 75,
-        keyImprovements: Array.isArray(optimizationData.keyImprovements)
-          ? optimizationData.keyImprovements
-          : ['Profile optimized for better visibility']
-      };
-
-      return optimizedProfile;
+      return messages.slice(0, 3); // Ensure we return exactly 3 messages
 
     } catch (error) {
       console.error('Error calling OpenRouter API:', error);
@@ -220,7 +201,7 @@ Respond ONLY with valid JSON. No markdown, no code blocks, just the JSON object.
       }
 
       if (retryCount === maxRetries - 1) {
-        throw new Error('Failed to optimize LinkedIn profile after multiple attempts.');
+        throw new Error('Failed to generate LinkedIn messages after multiple attempts.');
       }
 
       retryCount++;
@@ -229,5 +210,5 @@ Respond ONLY with valid JSON. No markdown, no code blocks, just the JSON object.
     }
   }
 
-  throw new Error(`Failed to optimize LinkedIn profile after ${maxRetries} attempts.`);
+  throw new Error(`Failed to generate LinkedIn messages after ${maxRetries} attempts.`);
 };

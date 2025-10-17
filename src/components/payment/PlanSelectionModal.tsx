@@ -63,15 +63,15 @@ export const PlanSelectionModal: React.FC<PlanSelectionModalProps> = ({
           mrp: 19, // Original price
           discountPercentage: ((19 - 9) / 19 * 100).toFixed(0), // Calculate discount
         };
-      case 'linkedin-optimizer':
+      case 'linkedin-generator':
         return {
-          title: 'Get LinkedIn Profile Optimization',
-          description: 'Purchase LinkedIn profile optimization credits',
-          icon: <User className="w-5 h-5" />,
-          addOnId: 'linkedin_optimizations_50_purchase',
-          redirectPath: '/linkedin-optimizer',
+          title: 'Get LinkedIn Messages',
+          description: 'Purchase LinkedIn message generation credits',
+          icon: <MessageCircle className="w-5 h-5" />,
+          addOnId: 'linkedin_messages_50_purchase',
+          redirectPath: '/linkedin-generator',
           price: 29,
-          mrp: 29,
+          mrp: 29, // Assuming no discount for this one, or adjust as needed
           discountPercentage: 0,
         };
       default: // This will be for 'optimizer' by default

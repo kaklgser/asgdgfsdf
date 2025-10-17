@@ -7,7 +7,7 @@ export interface SubscriptionPlan {
   duration: string;
   optimizations: number;
   scoreChecks: number;
-  linkedinOptimizations: number;
+  linkedinMessages: number; // Changed from typeof Infinity to number
   guidedBuilds: number;
   tag: string;
   tagColor: string;
@@ -64,8 +64,8 @@ export interface Subscription {
   couponUsed: string | null;
   scoreChecksUsed: number;
   scoreChecksTotal: number;
-  linkedinOptimizationsUsed: number;
-  linkedinOptimizationsTotal: number;
+  linkedinMessagesUsed: number;
+  linkedinMessagesTotal: number;
   guidedBuildsUsed: number;
   guidedBuildsTotal: number;
 }

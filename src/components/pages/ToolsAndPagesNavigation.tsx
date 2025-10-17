@@ -71,7 +71,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
 
   const getUsageText = () => {
     if (!isAuthenticated) return null;
-     if (id === 'guided-builder' || id === 'linkedin-optimizer') {
+     if (id === 'guided-builder' || id === 'linkedin-generator') {
       return null;
     }
     if (!userSubscription) return <span className="text-xs font-medium text-red-600 dark:text-red-400">No active plan</span>;
@@ -92,9 +92,9 @@ const FeatureCard: React.FC<FeatureCardProps> = ({
         used = userSubscription.guidedBuildsUsed;
         total = userSubscription.guidedBuildsTotal;
         break;
-      case 'linkedin-optimizer':
-        used = userSubscription.linkedinOptimizationsUsed;
-        total = userSubscription.linkedinOptimizationsTotal;
+      case 'linkedin-generator':
+        used = userSubscription.linkedinMessagesUsed;
+        total = userSubscription.linkedinMessagesTotal;
         break;
       default:
         return null;
@@ -178,8 +178,8 @@ export const ToolsAndPagesNavigation: React.FC<ToolsAndPagesNavigationProps> = (
       isTool: true,
     },
     {
-      id: 'linkedin-optimizer',
-      // Updated to LinkedIn Profile Optimizer
+      id: 'linkedin-generator',
+      // MODIFIED LINES 50-55: Updated title and description for linkedin-generator
       title: 'Outreach Message Generator',
       description: 'Generate personalized messages for networking, referrals, and cold outreach.',
       icon: <MessageCircle />,

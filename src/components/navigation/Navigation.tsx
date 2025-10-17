@@ -16,9 +16,7 @@ import {
   Shield,
   LayoutDashboard,
   Sparkles,
-  User,  // ADD THIS LINE
 } from "lucide-react";
-
 import { useAuth } from "../../contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -57,7 +55,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onPageChange }) => {
     { id: "/optimizer", label: "Resume Optimizer", icon: <Target className="w-4 h-4" /> },
     { id: "/score-checker", label: "Score Checker", icon: <TrendingUp className="w-4 h-4" /> },
     { id: "/guided-builder", label: "Guided Builder", icon: <PlusCircle className="w-4 h-4" /> },
-    { id: "/linkedin-optimizer", label: "LinkedIn Optimizer", icon: <User className="w-4 h-4" /> },
+    { id: "/linkedin-generator", label: "LinkedIn Messages", icon: <MessageCircle className="w-4 h-4" /> },
   ];
 
   return (

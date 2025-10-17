@@ -21,10 +21,8 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
-  Briefcase,
-  User,  // ADD THIS LINE
+  Briefcase
 } from 'lucide-react';
-
 // Assuming these imports exist in the user's project
 // import { paymentService } from '../../services/paymentService';
 
@@ -123,8 +121,8 @@ export const HomePage: React.FC<HomePageProps> = ({
         return userSubscription.scoreChecksTotal > userSubscription.scoreChecksUsed;
       case 'guided-builder':
         return userSubscription.guidedBuildsTotal > userSubscription.guidedBuildsUsed;
-      case 'linkedin-optimizer':
-        return userSubscription.linkedinOptimizationsTotal > userSubscription.linkedinOptimizationsUsed;
+      case 'linkedin-generator':
+        return userSubscription.linkedinMessagesTotal > userSubscription.linkedinMessagesUsed;
       default:
         return false;
     }
@@ -183,12 +181,14 @@ export const HomePage: React.FC<HomePageProps> = ({
     },
     
     {
-      id: 'linkedin-optimizer',
-      title: 'LinkedIn Profile Optimizer',
-      description: 'Get AI-powered suggestions to optimize your LinkedIn profile for maximum visibility and recruiter engagement.',
-      icon: <User className="w-6 h-6" />,
+      id: 'linkedin-generator',
+      // MODIFIED LINE 100: Changed title
+      title: 'Outreach Message Generator',
+      // MODIFIED LINE 101: Changed description
+      description: 'Generate personalized messages for networking, referrals, and cold outreach.',
+      icon: <MessageCircle className="w-6 h-6" />,
       requiresAuth: true,
-      gradient: 'from-yellow-50 to-amber-50',
+      gradient: 'from-yellow-50 to-amber-50', // Added gradient
     }
     
   ];
