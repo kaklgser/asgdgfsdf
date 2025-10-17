@@ -261,8 +261,8 @@ async getJobListings(filters: JobFilters = {}, limit = 20, offset = 0): Promise<
   total: number;
   hasMore: boolean;
   totalPages: number;
+  totalCompanies: number;
 }> {
-
     try {
       console.log('JobsService: Fetching job listings from database with filters:', filters);
 
@@ -324,22 +324,32 @@ async getJobListings(filters: JobFilters = {}, limit = 20, offset = 0): Promise<
 
       console.log(`JobsService: Fetched ${jobs?.length || 0} jobs from database (total: ${count})`);
 
-     const total = count || 0;
-const hasMore = offset + limit < total;
-const totalPages = Math.ceil(total / limit);
+      // Get total unique companies count from ALL active jobs
+      const { data: companiesData, error: companiesError } = await supabase
+        .from('job_listings')
+        .select('company_name')
+        .eq('is_active', true);
 
-return {
-  jobs: jobs || [],
-  total,
-  hasMore,
-  totalPages
-};
+      const totalCompanies = companiesError ? 0 : new Set(companiesData?.map(c => c.company_name) || []).size;
+
+      const total = count || 0;
+      const hasMore = offset + limit < total;
+      const totalPages = Math.ceil(total / limit);
+
+      return {
+        jobs: jobs || [],
+        total,
+        hasMore,
+        totalPages,
+        totalCompanies
+      };
 
     } catch (error) {
       console.error('JobsService: Error fetching job listings:', error);
       throw error;
     }
   }
+
 
   // Get all active jobs (used for AI matching)
   async getAllJobs(): Promise<JobListing[]> {
