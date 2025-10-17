@@ -21,7 +21,8 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
-  Briefcase
+  Briefcase,
+  Globe
 } from 'lucide-react';
 // Assuming these imports exist in the user's project
 // import { paymentService } from '../../services/paymentService';
@@ -123,6 +124,8 @@ export const HomePage: React.FC<HomePageProps> = ({
         return userSubscription.guidedBuildsTotal > userSubscription.guidedBuildsUsed;
       case 'linkedin-generator':
         return userSubscription.linkedinMessagesTotal > userSubscription.linkedinMessagesUsed;
+      case 'portfolio-builder':
+        return true; // Portfolio builder always available if authenticated
       default:
         return false;
     }
@@ -152,7 +155,6 @@ export const HomePage: React.FC<HomePageProps> = ({
     }
   };
 
-
   const features: Feature[] = [
     {
       id: 'optimizer',
@@ -179,7 +181,14 @@ export const HomePage: React.FC<HomePageProps> = ({
       requiresAuth: false,
       gradient: 'from-orange-50 to-red-50', // Added gradient
     },
-    
+    {
+      id: 'portfolio-builder',
+      title: 'AI Portfolio Builder',
+      description: 'Create a stunning portfolio website in minutes with AI-powered content generation.',
+      icon: <Globe className="w-6 h-6" />,
+      requiresAuth: true,
+      gradient: 'from-indigo-50 to-violet-50', // Added gradient
+    },
     {
       id: 'linkedin-generator',
       // MODIFIED LINE 100: Changed title
@@ -214,7 +223,6 @@ export const HomePage: React.FC<HomePageProps> = ({
         <div className="absolute top-1/4 left-1/4 w-48 h-48 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob dark:bg-neon-purple-500"></div>
         <div className="absolute bottom-1/3 right-1/4 w-64 h-64 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000 dark:bg-neon-blue-500"></div>
         <div className="absolute top-1/2 left-1/2 w-56 h-56 bg-green-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000 dark:bg-neon-cyan-500"></div>
-
 
         <div className="relative container-responsive py-12 sm:py-16 lg:py-20">
           <div className="text-center max-w-4xl mx-auto">
@@ -310,6 +318,9 @@ export const HomePage: React.FC<HomePageProps> = ({
                 case 'linkedin-generator':
                   remainingCount = userSubscription.linkedinMessagesTotal - userSubscription.linkedinMessagesUsed;
                   break;
+                case 'portfolio-builder':
+                  remainingCount = null; // Portfolio builder doesn't use credits
+                  break;
                 default:
                   remainingCount = null;
               }
@@ -342,7 +353,7 @@ export const HomePage: React.FC<HomePageProps> = ({
                     <span className="text-lg font-bold text-secondary-900 dark:text-gray-100">{feature.title}</span>
                     <p className="text-sm text-secondary-700 dark:text-gray-300">{feature.description}</p>
                   {isAuthenticated && userSubscription && remainingCount !== null && remainingCount > 0 &&
- feature.id !== 'guided-builder' && feature.id !== 'linkedin-generator' && (
+ feature.id !== 'guided-builder' && feature.id !== 'linkedin-generator' && feature.id !== 'portfolio-builder' && (
   <p className="text-xs font-medium text-green-600 dark:text-neon-cyan-400 mt-1">
     {remainingCount} remaining
   </p>
