@@ -1,22 +1,15 @@
-import { Handler } from '@netlify/functions';
+import type { Request, Response } from 'express';
 
-const handler: Handler = async () => {
-  const apiKey = process.env.AGENTROUTER_API_KEY;
+export function handleAiHealth(req: Request, res: Response) {
+  const apiKey = import.meta.env.VITE_AGENTROUTER_API_KEY;
   
-  const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Content-Type': 'application/json',
-  };
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/json');
 
-  return {
-    statusCode: 200,
-    headers,
-    body: JSON.stringify({
-      status: 'ok',
-      agentRouterConfigured: !!apiKey,
-      timestamp: new Date().toISOString(),
-    }),
-  };
-};
-
-export { handler };
+  res.status(200).json({
+    status: 'ok',
+    environment: 'development',
+    agentRouterConfigured: !!apiKey,
+    timestamp: new Date().toISOString(),
+  });
+}
