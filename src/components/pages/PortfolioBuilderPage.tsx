@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Upload, Loader2, CheckCircle, AlertCircle, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, AlertCircle, ExternalLink, AlertTriangle, Info } from 'lucide-react';
 import { portfolioService } from '../../services/portfolioService';
 import { UserType, TemplateId, TEMPLATE_CONFIGS } from '../../types/portfolio';
 
@@ -62,8 +62,10 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
     setResumeText(text);
     setCharCount(count);
     
+    // Remove the hard error - just show info
     if (count > MAX_CHARACTERS) {
-      setError(`Text exceeds ${MAX_CHARACTERS.toLocaleString()} characters. Current: ${count.toLocaleString()}`);
+      // Don't set error anymore
+      setError('');
     } else {
       setError('');
     }
@@ -80,11 +82,11 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
       return;
     }
 
-    // Check character limit for pasted text
-    if (resumeText && resumeText.length > MAX_CHARACTERS) {
-      setError(`Resume text exceeds ${MAX_CHARACTERS.toLocaleString()} characters. Please shorten your input to ${MAX_CHARACTERS.toLocaleString()} characters or less.`);
-      return;
-    }
+    // REMOVED: No longer checking character limit - AI will auto-optimize
+    // if (resumeText && resumeText.length > MAX_CHARACTERS) {
+    //   setError(...);
+    //   return;
+    // }
 
     setIsLoading(true);
     setError('');
@@ -108,9 +110,7 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
       let errorMessage = err.message || 'Failed to create portfolio. Please try again.';
       
       // Handle specific error cases
-      if (errorMessage.includes('exceeds 50000 characters')) {
-        errorMessage = 'Your resume is too long. Please upload a shorter version (max 50,000 characters) or paste a condensed version of your resume.';
-      } else if (errorMessage.includes('Invalid JSON')) {
+      if (errorMessage.includes('Invalid JSON')) {
         errorMessage = 'There was an issue processing your resume. Please try uploading a different format or paste the text directly.';
       }
       
@@ -147,7 +147,7 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
 
   const getCharCountColor = () => {
     const percentage = (charCount / MAX_CHARACTERS) * 100;
-    if (percentage >= 100) return 'text-red-600';
+    if (percentage >= 100) return 'text-orange-600'; // Changed from red
     if (percentage >= 80) return 'text-orange-600';
     if (percentage >= 60) return 'text-yellow-600';
     return 'text-gray-600';
@@ -218,13 +218,13 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
           <div className="bg-white rounded-2xl shadow-xl p-8">
             <h2 className="text-2xl font-semibold mb-6">Upload Your Resume</h2>
 
-            {/* Character Limit Warning */}
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            {/* AI Auto-Optimization Info */}
+            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-800">
-                  <p className="font-medium mb-1">Resume Size Limit</p>
-                  <p>Your resume should be concise and under {MAX_CHARACTERS.toLocaleString()} characters. If your file is too large, try pasting only the essential information (contact, experience, education, skills).</p>
+                <Info className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-green-800">
+                  <p className="font-medium mb-1">Smart Resume Processing</p>
+                  <p>Our AI automatically optimizes long resumes! If your resume exceeds {MAX_CHARACTERS.toLocaleString()} characters, we'll intelligently condense it while preserving all key information.</p>
                 </div>
               </div>
             </div>
@@ -269,7 +269,10 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
                   Paste Resume Text
                 </label>
                 <span className={`text-xs font-medium ${getCharCountColor()}`}>
-                  {charCount.toLocaleString()} / {MAX_CHARACTERS.toLocaleString()} characters
+                  {charCount.toLocaleString()} characters
+                  {charCount > MAX_CHARACTERS && (
+                    <span className="ml-1 text-green-600">(will auto-optimize)</span>
+                  )}
                 </span>
               </div>
               <textarea
@@ -277,13 +280,12 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
                 onChange={handleTextChange}
                 placeholder="Paste your resume content or LinkedIn profile..."
                 rows={12}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  charCount > MAX_CHARACTERS ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
-              {charCount > MAX_CHARACTERS * 0.8 && charCount <= MAX_CHARACTERS && (
-                <p className="mt-2 text-sm text-orange-600">
-                  Warning: You're approaching the character limit
+              {charCount > MAX_CHARACTERS && (
+                <p className="mt-2 text-sm text-green-600 flex items-center gap-1">
+                  <Info className="h-4 w-4" />
+                  Your resume will be automatically optimized to fit the character limit while preserving all important details.
                 </p>
               )}
             </div>
@@ -304,7 +306,7 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
               </button>
               <button
                 onClick={() => setStep('template')}
-                disabled={(!resumeText && !resumeFile) || (resumeText && charCount > MAX_CHARACTERS)}
+                disabled={!resumeText && !resumeFile}
                 className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
                 Continue to Templates
@@ -387,6 +389,12 @@ export const PortfolioBuilderPage: React.FC<PortfolioBuilderPageProps> = ({
                   <CheckCircle className="h-5 w-5 text-green-500" />
                   <span>Parsing resume content</span>
                 </div>
+                {charCount > MAX_CHARACTERS && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <Loader2 className="h-5 w-5 animate-spin text-orange-500" />
+                    <span>Optimizing resume length with AI...</span>
+                  </div>
+                )}
                 <div className="flex items-center gap-3 text-sm">
                   <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
                   <span>Generating AI-enhanced content</span>
