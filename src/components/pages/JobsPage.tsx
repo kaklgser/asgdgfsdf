@@ -232,11 +232,12 @@ export const JobsPage: React.FC<JobsPageProps> = ({
   };
 
   const stats = [
-    { label: 'Total Jobs', value: total, icon: <Briefcase className="w-5 h-5" /> },
-    { label: 'Remote Jobs', value: jobs.filter(j => j.location_type === 'Remote').length, icon: <MapPin className="w-5 h-5" /> },
-    { label: 'Fresh Openings', value: jobs.filter(j => new Date(j.posted_date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length, icon: <Clock className="w-5 h-5" /> },
-    { label: 'Companies', value: new Set(jobs.map(j => j.company_name)).size, icon: <Users className="w-5 h-5" /> }
-  ];
+  { label: 'Total Jobs', value: total, icon: <Briefcase className="w-5 h-5" /> },
+  { label: 'Remote Jobs', value: jobs.filter(j => j.location_type === 'Remote').length, icon: <MapPin className="w-5 h-5" /> },
+  { label: 'Fresh Openings', value: jobs.filter(j => new Date(j.posted_date) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length, icon: <Clock className="w-5 h-5" /> },
+  { label: 'Companies', value: totalCompanies, icon: <Users className="w-5 h-5" /> }
+];
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-dark-50 dark:to-dark-200 transition-colors duration-300">
