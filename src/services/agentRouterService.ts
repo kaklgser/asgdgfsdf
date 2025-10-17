@@ -1,9 +1,10 @@
-const AGENTROUTER_API_KEY = import.meta.env.VITE_AGENTROUTER_API_KEY;
-const AGENTROUTER_API_URL = 'https://api.agentrouter.ai/v1/chat/completions';
-
 const MAX_INPUT_LENGTH = 50000;
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 1000;
+const REQUEST_TIMEOUT_MS = 30000;
+
+// Use local API endpoints instead of direct AgentRouter calls
+const AI_API_ENDPOINT = '/.netlify/functions/ai-enrich';
 
 interface AgentRouterMessage {
   role: 'system' | 'user' | 'assistant';
@@ -35,18 +36,8 @@ interface AgentRouterResponse {
 }
 
 class AgentRouterService {
-  private apiKey: string;
-  private primaryModel: string = 'gpt-5';
-  private fallbackModels: string[] = ['claude-haiku-4.5', 'deepseek-v3.2'];
-
-  constructor() {
-    if (!AGENTROUTER_API_KEY) {
-      console.warn('AgentRouter API key not configured. Portfolio AI features will be disabled.');
-      this.apiKey = '';
-    } else {
-      this.apiKey = AGENTROUTER_API_KEY;
-    }
-  }
+  private primaryModel: string = 'gpt-4o';
+  private fallbackModels: string[] = ['claude-3-5-haiku-20241022', 'deepseek-chat'];
 
   private async safeFetch(
     messages: AgentRouterMessage[],
@@ -56,10 +47,6 @@ class AgentRouterService {
       model?: string;
     } = {}
   ): Promise<AgentRouterResponse> {
-    if (!this.apiKey) {
-      throw new Error('AgentRouter API key is not configured. Please add VITE_AGENTROUTER_API_KEY to your environment variables.');
-    }
-
     const { temperature = 0.7, maxTokens = 2000, model = this.primaryModel } = options;
     let retries = 0;
     let delay = INITIAL_RETRY_DELAY_MS;
@@ -75,69 +62,93 @@ class AgentRouterService {
           max_tokens: maxTokens,
         };
 
-        const response = await fetch(AGENTROUTER_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${this.apiKey}`,
-          },
-          body: JSON.stringify(requestBody),
-        });
+        // Create timeout controller
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          let errorMessage = `AgentRouter API error: ${response.status}`;
+        try {
+          const response = await fetch(AI_API_ENDPOINT, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
+          });
 
-          try {
-            const errorJson = JSON.parse(errorText);
-            if (errorJson.error && errorJson.error.message) {
-              errorMessage = `AgentRouter API error: ${errorJson.error.message} (Code: ${errorJson.error.code || response.status})`;
-            } else {
-              errorMessage = `AgentRouter API error: ${errorText} (Status: ${response.status})`;
+          clearTimeout(timeout);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            let errorMessage = `AI API error: ${response.status}`;
+
+            try {
+              const errorJson = JSON.parse(errorText);
+              if (errorJson.error) {
+                errorMessage = `AI API error: ${errorJson.error} (Code: ${errorJson.code || response.status})`;
+              }
+            } catch (parseError) {
+              errorMessage = `AI API error: ${errorText} (Status: ${response.status})`;
             }
-          } catch (parseError) {
-            errorMessage = `AgentRouter API error: ${errorText} (Status: ${response.status})`;
-          }
 
-          if (response.status === 400) {
-            throw new Error(`AgentRouter API: Bad Request. ${errorMessage}`);
-          }
-          if (response.status === 401) {
-            throw new Error(`AgentRouter API: Invalid API Key. ${errorMessage}`);
-          }
-          if (response.status === 402) {
-            throw new Error(`AgentRouter API: Insufficient Credits. ${errorMessage}`);
-          }
-          if (response.status === 429 || response.status >= 500) {
-            retries++;
-            if (retries >= MAX_RETRIES && fallbackIndex < this.fallbackModels.length) {
-              console.warn(`Primary model ${currentModel} failed. Trying fallback model: ${this.fallbackModels[fallbackIndex]}`);
-              currentModel = this.fallbackModels[fallbackIndex];
-              fallbackIndex++;
-              retries = 0;
-              delay = INITIAL_RETRY_DELAY_MS;
+            if (response.status === 400) {
+              throw new Error(`Bad Request. ${errorMessage}`);
+            }
+            if (response.status === 401) {
+              throw new Error(`Authentication failed. Please check server configuration.`);
+            }
+            if (response.status === 402) {
+              throw new Error(`Insufficient AI credits. Please upgrade your plan.`);
+            }
+            if (response.status === 504) {
+              throw new Error(`Request timeout. The AI service took too long to respond.`);
+            }
+            if (response.status === 429 || response.status >= 500) {
+              retries++;
+              if (retries >= MAX_RETRIES && fallbackIndex < this.fallbackModels.length) {
+                console.warn(`Primary model ${currentModel} failed. Trying fallback: ${this.fallbackModels[fallbackIndex]}`);
+                currentModel = this.fallbackModels[fallbackIndex];
+                fallbackIndex++;
+                retries = 0;
+                delay = INITIAL_RETRY_DELAY_MS;
+                continue;
+              }
+              if (retries >= MAX_RETRIES && fallbackIndex >= this.fallbackModels.length) {
+                throw new Error(`AI service unavailable after ${MAX_RETRIES} retries on all models. ${errorMessage}`);
+              }
+              const jitter = Math.random() * 400;
+              console.warn(`AI API: ${errorMessage}. Retrying in ${(delay + jitter) / 1000}s... (Attempt ${retries}/${MAX_RETRIES})`);
+              await new Promise(resolve => setTimeout(resolve, delay + jitter));
+              delay *= 2;
               continue;
             }
-            if (retries >= MAX_RETRIES && fallbackIndex >= this.fallbackModels.length) {
-              throw new Error(`AgentRouter API error: Failed after ${MAX_RETRIES} retries on all models. ${errorMessage}`);
+            throw new Error(errorMessage);
+          }
+
+          const data: AgentRouterResponse = await response.json();
+          return data;
+        } catch (fetchError: any) {
+          clearTimeout(timeout);
+          
+          if (fetchError.name === 'AbortError') {
+            retries++;
+            if (retries >= MAX_RETRIES) {
+              throw new Error(`Request timeout after ${MAX_RETRIES} attempts. The AI service is not responding.`);
             }
-            console.warn(`AgentRouter API: ${errorMessage}. Retrying in ${delay / 1000}s... (Attempt ${retries}/${MAX_RETRIES})`);
-            await new Promise(resolve => setTimeout(resolve, delay));
+            console.warn(`Request timeout. Retrying... (Attempt ${retries}/${MAX_RETRIES})`);
+            await new Promise(r => setTimeout(r, delay));
             delay *= 2;
             continue;
           }
-          throw new Error(errorMessage);
+          throw fetchError;
         }
-
-        const data: AgentRouterResponse = await response.json();
-        return data;
       } catch (err: any) {
         if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
           retries++;
           if (retries >= MAX_RETRIES) {
-            throw new Error(`Network/Fetch error: Failed after ${MAX_RETRIES} retries. ${err.message}`);
+            throw new Error(`Network error: Unable to connect to AI service after ${MAX_RETRIES} retries. Please check your internet connection.`);
           }
-          console.warn(`Network/Fetch error: ${err.message}. Retrying in ${delay / 1000}s... (Attempt ${retries}/${MAX_RETRIES})`);
+          console.warn(`Network error: ${err.message}. Retrying in ${delay / 1000}s... (Attempt ${retries}/${MAX_RETRIES})`);
           await new Promise(r => setTimeout(r, delay));
           delay *= 2;
           continue;
@@ -179,12 +190,11 @@ class AgentRouterService {
         processedResumeText = await this.condenseResumeText({
           resumeText,
           userType,
-          targetCharLimit: 45000, // Safe margin
+          targetCharLimit: 45000,
         });
         console.log(`Resume condensed from ${resumeText.length} to ${processedResumeText.length} characters`);
       } catch (condenseError) {
         console.error('Failed to condense resume with AI:', condenseError);
-        // Fallback to smart truncation
         processedResumeText = this.smartTruncateResume(resumeText, 45000);
         console.log(`Fallback truncation: ${processedResumeText.length} characters`);
       }
@@ -215,7 +225,7 @@ class AgentRouterService {
     );
 
     if (!response.choices || response.choices.length === 0) {
-      throw new Error('No response from AgentRouter API');
+      throw new Error('No response from AI service');
     }
 
     const content = response.choices[0].message.content.trim();
@@ -252,16 +262,14 @@ Return ONLY the condensed resume text, no explanations or markdown formatting.`;
     const response = await this.safeFetch(
       [{ role: 'user', content: prompt }],
       {
-        temperature: 0.3, // Lower temperature for more focused output
+        temperature: 0.3,
         maxTokens: 4000,
       }
     );
 
     const condensedText = response.choices[0].message.content.trim();
     
-    // Verify it's actually shorter
     if (condensedText.length >= resumeText.length) {
-      // AI didn't condense, do smart truncation
       return this.smartTruncateResume(resumeText, targetCharLimit);
     }
 
@@ -269,19 +277,15 @@ Return ONLY the condensed resume text, no explanations or markdown formatting.`;
   }
 
   private smartTruncateResume(resumeText: string, targetLength: number): string {
-    // Fallback: Extract key sections using smart truncation
     const sections = {
       contact: '',
-      summary: '',
       experience: '',
       education: '',
       skills: ''
     };
 
-    // Try to extract contact info (first 500 chars usually)
     sections.contact = resumeText.substring(0, 500);
 
-    // Look for key section markers
     const experienceMatch = resumeText.match(/(?:experience|work history|employment)([\s\S]{0,10000})/i);
     if (experienceMatch) {
       sections.experience = experienceMatch[1].substring(0, 8000);
@@ -297,7 +301,6 @@ Return ONLY the condensed resume text, no explanations or markdown formatting.`;
       sections.skills = skillsMatch[1].substring(0, 1500);
     }
 
-    // Combine sections
     const truncated = `${sections.contact}\n\nEXPERIENCE\n${sections.experience}\n\nEDUCATION\n${sections.education}\n\nSKILLS\n${sections.skills}`;
 
     return truncated.substring(0, targetLength);
@@ -559,6 +562,9 @@ Critical Requirements:
   private parseAndValidateJSON(content: string): any {
     let cleanedContent = content.trim();
 
+    // Strip BOM and zero-width characters
+    cleanedContent = cleanedContent.replace(/^[\uFEFF\u200B]+/, '');
+
     const jsonMatch = cleanedContent.match(/```json\s*([\s\S]*?)\s*```/);
     if (jsonMatch && jsonMatch[1]) {
       cleanedContent = jsonMatch[1].trim();
@@ -571,13 +577,25 @@ Critical Requirements:
       return parsed;
     } catch (err) {
       console.error('JSON parsing error:', err);
-      console.error('Raw response:', cleanedContent);
-      throw new Error('Invalid JSON response from AgentRouter API. Please try again.');
+      console.error('Raw response:', cleanedContent.substring(0, 500));
+      throw new Error('Invalid JSON response from AI service. Please try again.');
     }
   }
 
   isConfigured(): boolean {
-    return !!this.apiKey;
+    // Always return true since config is server-side
+    return true;
+  }
+
+  async checkHealth(): Promise<boolean> {
+    try {
+      const response = await fetch('/.netlify/functions/ai-health');
+      const data = await response.json();
+      return data.agentRouterConfigured === true;
+    } catch (error) {
+      console.error('Health check failed:', error);
+      return false;
+    }
   }
 }
 
