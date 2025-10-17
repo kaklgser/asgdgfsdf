@@ -1,12 +1,11 @@
 import { getApiEndpoint } from '../utils/apiConfig';
 
-
 const MAX_INPUT_LENGTH = 50000;
 const MAX_RETRIES = 3;
 const INITIAL_RETRY_DELAY_MS = 1000;
 const REQUEST_TIMEOUT_MS = 30000;
 
-// Use local API endpoints instead of direct AgentRouter calls
+// Local API endpoints (server proxy), not AgentRouter directly
 const getAiEndpoint = () => getApiEndpoint('/ai-enrich');
 const getHealthEndpoint = () => getApiEndpoint('/ai-health');
 
@@ -32,7 +31,7 @@ interface AgentRouterResponse {
     message: AgentRouterMessage;
     finish_reason: string;
   }>;
-  usage: {
+  usage?: {
     prompt_tokens: number;
     completion_tokens: number;
     total_tokens: number;
@@ -40,114 +39,102 @@ interface AgentRouterResponse {
 }
 
 class AgentRouterService {
+  // Make sure these model IDs exist in your AgentRouter workspace
   private primaryModel: string = 'gpt-4o';
   private fallbackModels: string[] = ['claude-3-5-haiku-20241022', 'deepseek-chat'];
 
   private async safeFetch(
     messages: AgentRouterMessage[],
-    options: {
-      temperature?: number;
-      maxTokens?: number;
-      model?: string;
-    } = {}
+    options: { temperature?: number; maxTokens?: number; model?: string } = {}
   ): Promise<AgentRouterResponse> {
     const { temperature = 0.7, maxTokens = 2000, model = this.primaryModel } = options;
+
     let retries = 0;
     let delay = INITIAL_RETRY_DELAY_MS;
     let currentModel = model;
     let fallbackIndex = 0;
 
     while (retries < MAX_RETRIES) {
+      const requestBody: AgentRouterRequest = {
+        model: currentModel,
+        messages,
+        temperature,
+        max_tokens: maxTokens,
+      };
+
+      // Timeout controller per request
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
       try {
-        const requestBody: AgentRouterRequest = {
-          model: currentModel,
-          messages,
-          temperature,
-          max_tokens: maxTokens,
-        };
+        const response = await fetch(getAiEndpoint(), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
+        });
 
-        // Create timeout controller
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        clearTimeout(timeout);
 
-        try {
-          const response = await fetch(AI_API_ENDPOINT, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-            signal: controller.signal,
-          });
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => '');
+          let errorMessage = `AI API error: ${response.status}`;
 
-          clearTimeout(timeout);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            let errorMessage = `AI API error: ${response.status}`;
-
-            try {
-              const errorJson = JSON.parse(errorText);
-              if (errorJson.error) {
-                errorMessage = `AI API error: ${errorJson.error} (Code: ${errorJson.code || response.status})`;
-              }
-            } catch (parseError) {
-              errorMessage = `AI API error: ${errorText} (Status: ${response.status})`;
+          try {
+            const errorJson = JSON.parse(errorText);
+            if (errorJson.error) {
+              errorMessage = `AI API error: ${errorJson.error} (Code: ${errorJson.code || response.status})`;
             }
-
-            if (response.status === 400) {
-              throw new Error(`Bad Request. ${errorMessage}`);
-            }
-            if (response.status === 401) {
-              throw new Error(`Authentication failed. Please check server configuration.`);
-            }
-            if (response.status === 402) {
-              throw new Error(`Insufficient AI credits. Please upgrade your plan.`);
-            }
-            if (response.status === 504) {
-              throw new Error(`Request timeout. The AI service took too long to respond.`);
-            }
-            if (response.status === 429 || response.status >= 500) {
-              retries++;
-              if (retries >= MAX_RETRIES && fallbackIndex < this.fallbackModels.length) {
-                console.warn(`Primary model ${currentModel} failed. Trying fallback: ${this.fallbackModels[fallbackIndex]}`);
-                currentModel = this.fallbackModels[fallbackIndex];
-                fallbackIndex++;
-                retries = 0;
-                delay = INITIAL_RETRY_DELAY_MS;
-                continue;
-              }
-              if (retries >= MAX_RETRIES && fallbackIndex >= this.fallbackModels.length) {
-                throw new Error(`AI service unavailable after ${MAX_RETRIES} retries on all models. ${errorMessage}`);
-              }
-              const jitter = Math.random() * 400;
-              console.warn(`AI API: ${errorMessage}. Retrying in ${(delay + jitter) / 1000}s... (Attempt ${retries}/${MAX_RETRIES})`);
-              await new Promise(resolve => setTimeout(resolve, delay + jitter));
-              delay *= 2;
-              continue;
-            }
-            throw new Error(errorMessage);
+          } catch {
+            if (errorText) errorMessage = `AI API error: ${errorText} (Status: ${response.status})`;
           }
 
-          const data: AgentRouterResponse = await response.json();
-          return data;
-        } catch (fetchError: any) {
-          clearTimeout(timeout);
-          
-          if (fetchError.name === 'AbortError') {
+          if (response.status === 400) throw new Error(`Bad Request. ${errorMessage}`);
+          if (response.status === 401) throw new Error(`Authentication failed. Please check server configuration.`);
+          if (response.status === 402) throw new Error(`Insufficient AI credits. Please upgrade your plan.`);
+          if (response.status === 504) throw new Error(`Request timeout. The AI service took too long to respond.`);
+
+          if (response.status === 429 || response.status >= 500) {
             retries++;
-            if (retries >= MAX_RETRIES) {
-              throw new Error(`Request timeout after ${MAX_RETRIES} attempts. The AI service is not responding.`);
+            if (retries >= MAX_RETRIES && fallbackIndex < this.fallbackModels.length) {
+              console.warn(`Primary model ${currentModel} failed. Trying fallback: ${this.fallbackModels[fallbackIndex]}`);
+              currentModel = this.fallbackModels[fallbackIndex++];
+              retries = 0;
+              delay = INITIAL_RETRY_DELAY_MS;
+              continue;
             }
-            console.warn(`Request timeout. Retrying... (Attempt ${retries}/${MAX_RETRIES})`);
-            await new Promise(r => setTimeout(r, delay));
+            if (retries >= MAX_RETRIES && fallbackIndex >= this.fallbackModels.length) {
+              throw new Error(`AI service unavailable after ${MAX_RETRIES} retries on all models. ${errorMessage}`);
+            }
+            const jitter = Math.random() * 400;
+            console.warn(`AI API: ${errorMessage}. Retrying in ${(delay + jitter) / 1000}s... (Attempt ${retries}/${MAX_RETRIES})`);
+            await new Promise(r => setTimeout(r, delay + jitter));
             delay *= 2;
             continue;
           }
-          throw fetchError;
+
+          throw new Error(errorMessage);
         }
+
+        const data: AgentRouterResponse = await response.json();
+        return data;
       } catch (err: any) {
-        if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
+        clearTimeout(timeout);
+
+        // Timeout from AbortController
+        if (err?.name === 'AbortError') {
+          retries++;
+          if (retries >= MAX_RETRIES) {
+            throw new Error(`Request timeout after ${MAX_RETRIES} attempts. The AI service is not responding.`);
+          }
+          console.warn(`Request timeout. Retrying... (Attempt ${retries}/${MAX_RETRIES})`);
+          await new Promise(r => setTimeout(r, delay));
+          delay *= 2;
+          continue;
+        }
+
+        // Network failures
+        if ((err.message || '').includes('Failed to fetch') || (err.message || '').includes('NetworkError')) {
           retries++;
           if (retries >= MAX_RETRIES) {
             throw new Error(`Network error: Unable to connect to AI service after ${MAX_RETRIES} retries. Please check your internet connection.`);
@@ -157,9 +144,12 @@ class AgentRouterService {
           delay *= 2;
           continue;
         }
+
+        // Other errors → bubble up
         throw err;
       }
     }
+
     throw new Error(`Failed after ${MAX_RETRIES} retries`);
   }
 
@@ -217,14 +207,17 @@ class AgentRouterService {
       githubUrl,
     });
 
-const response = await fetch(getAiEndpoint(), {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify(requestBody),
-  signal: controller.signal,
-});
+    // ✅ Route through safeFetch (no stray fetch(), no undefined requestBody/controller)
+    const response = await this.safeFetch(
+      [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      {
+        temperature: 0.25,
+        maxTokens: 3000,
+      }
+    );
 
     if (!response.choices || response.choices.length === 0) {
       throw new Error('No response from AI service');
@@ -261,50 +254,32 @@ Your goal: Reduce length to under ${targetCharLimit} characters while keeping th
 
 Return ONLY the condensed resume text, no explanations or markdown formatting.`;
 
-    const response = await this.safeFetch(
-      [{ role: 'user', content: prompt }],
-      {
-        temperature: 0.3,
-        maxTokens: 4000,
-      }
-    );
+    const response = await this.safeFetch([{ role: 'user', content: prompt }], {
+      temperature: 0.3,
+      maxTokens: 4000,
+    });
 
     const condensedText = response.choices[0].message.content.trim();
-    
     if (condensedText.length >= resumeText.length) {
       return this.smartTruncateResume(resumeText, targetCharLimit);
     }
-
     return condensedText;
   }
 
   private smartTruncateResume(resumeText: string, targetLength: number): string {
-    const sections = {
-      contact: '',
-      experience: '',
-      education: '',
-      skills: ''
-    };
-
+    const sections = { contact: '', experience: '', education: '', skills: '' };
     sections.contact = resumeText.substring(0, 500);
 
     const experienceMatch = resumeText.match(/(?:experience|work history|employment)([\s\S]{0,10000})/i);
-    if (experienceMatch) {
-      sections.experience = experienceMatch[1].substring(0, 8000);
-    }
+    if (experienceMatch) sections.experience = experienceMatch[1].substring(0, 8000);
 
     const educationMatch = resumeText.match(/(?:education|academic)([\s\S]{0,3000})/i);
-    if (educationMatch) {
-      sections.education = educationMatch[1].substring(0, 2000);
-    }
+    if (educationMatch) sections.education = educationMatch[1].substring(0, 2000);
 
     const skillsMatch = resumeText.match(/(?:skills|technical skills|competencies)([\s\S]{0,2000})/i);
-    if (skillsMatch) {
-      sections.skills = skillsMatch[1].substring(0, 1500);
-    }
+    if (skillsMatch) sections.skills = skillsMatch[1].substring(0, 1500);
 
     const truncated = `${sections.contact}\n\nEXPERIENCE\n${sections.experience}\n\nEDUCATION\n${sections.education}\n\nSKILLS\n${sections.skills}`;
-
     return truncated.substring(0, targetLength);
   }
 
@@ -334,10 +309,10 @@ Requirements:
 
 Return ONLY the About section text, no additional formatting or explanations.`;
 
-    const response = await this.safeFetch(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.8, maxTokens: 500 }
-    );
+    const response = await this.safeFetch([{ role: 'user', content: prompt }], {
+      temperature: 0.8,
+      maxTokens: 500,
+    });
 
     return response.choices[0].message.content.trim();
   }
@@ -370,10 +345,10 @@ Return ONLY valid JSON:
   "keywords": ["...", "..."]
 }`;
 
-    const response = await this.safeFetch(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.5, maxTokens: 300 }
-    );
+    const response = await this.safeFetch([{ role: 'user', content: prompt }], {
+      temperature: 0.5,
+      maxTokens: 300,
+    });
 
     const content = response.choices[0].message.content.trim();
     return this.parseAndValidateJSON(content);
@@ -401,10 +376,10 @@ Generate exactly 3 bullet points that:
 
 Return ONLY a JSON array: ["bullet1", "bullet2", "bullet3"]`;
 
-    const response = await this.safeFetch(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.7, maxTokens: 300 }
-    );
+    const response = await this.safeFetch([{ role: 'user', content: prompt }], {
+      temperature: 0.7,
+      maxTokens: 300,
+    });
 
     const content = response.choices[0].message.content.trim();
     return this.parseAndValidateJSON(content);
@@ -429,14 +404,14 @@ Common categories: Programming Languages, Frameworks, Databases, Cloud/DevOps, T
 
 Return ONLY valid JSON:
 [
-  {"category": "Category Name", "skills": ["skill1", "skill2", ...]},
-  ...
+  {"category": "Category Name", "skills": ["skill1", "skill2", "..."]},
+  {"category": "...", "skills": ["...", "..."]}
 ]`;
 
-    const response = await this.safeFetch(
-      [{ role: 'user', content: prompt }],
-      { temperature: 0.6, maxTokens: 800 }
-    );
+    const response = await this.safeFetch([{ role: 'user', content: prompt }], {
+      temperature: 0.6,
+      maxTokens: 800,
+    });
 
     const content = response.choices[0].message.content.trim();
     return this.parseAndValidateJSON(content);
@@ -444,38 +419,31 @@ Return ONLY valid JSON:
 
   private getSystemPromptForUserType(userType: 'fresher' | 'student' | 'experienced'): string {
     const basePrompt = `You are an expert portfolio content creator and career coach. Your task is to analyze resume content and generate optimized, compelling portfolio content.`;
-
-    switch (userType) {
-      case 'experienced':
-        return `${basePrompt}
-
+    if (userType === 'experienced') {
+      return `${basePrompt}
 Focus on EXPERIENCED PROFESSIONALS:
 1. Emphasize leadership, achievements, and career progression
 2. Quantify impact with specific metrics and results
 3. Highlight technical expertise and domain knowledge
 4. Showcase strategic thinking and problem-solving
 5. Include professional summary (not career objective)`;
-
-      case 'student':
-        return `${basePrompt}
-
+    }
+    if (userType === 'student') {
+      return `${basePrompt}
 Focus on COLLEGE STUDENTS:
 1. Emphasize academic achievements and GPA
 2. Highlight internships, projects, and coursework
 3. Showcase learning ability and technical skills
 4. Include career objective focusing on learning goals
 5. Emphasize potential and enthusiasm`;
-
-      case 'fresher':
-        return `${basePrompt}
-
+    }
+    return `${basePrompt}
 Focus on FRESH GRADUATES:
 1. Balance education and practical experience
 2. Highlight projects, internships, and certifications
 3. Showcase technical skills and tools
 4. Include career objective for entry-level roles
 5. Emphasize adaptability and eagerness to learn`;
-    }
   }
 
   private getUserPromptForEnrichment(params: {
@@ -518,37 +486,16 @@ Generate a complete portfolio data structure in JSON format:
   "about": "Compelling 2-3 paragraph About section (150-250 words)",
   "targetRole": "Specific role title",
   "experience": [
-    {
-      "role": "...",
-      "company": "...",
-      "duration": "...",
-      "bullets": ["...", "...", "..."]
-    }
+    { "role": "...", "company": "...", "duration": "...", "bullets": ["...", "...", "..."] }
   ],
   "projects": [
-    {
-      "title": "...",
-      "description": "Brief description",
-      "techStack": ["...", "..."],
-      "bullets": ["...", "...", "..."],
-      "links": {"github": "...", "demo": "..."}
-    }
+    { "title": "...", "description": "Brief description", "techStack": ["...", "..."], "bullets": ["...", "...", "..."], "links": {"github": "...", "demo": "..."} }
   ],
   "education": [
-    {
-      "degree": "...",
-      "institution": "...",
-      "year": "...",
-      "gpa": "...",
-      "location": "..."
-    }
+    { "degree": "...", "institution": "...", "year": "...", "gpa": "...", "location": "..." }
   ],
-  "skills": [
-    {"category": "...", "items": ["...", "..."]}
-  ],
-  "certifications": [
-    {"title": "...", "issuer": "...", "date": "..."}
-  ],
+  "skills": [ { "category": "...", "items": ["...", "..."] } ],
+  "certifications": [ { "title": "...", "issuer": "...", "date": "..." } ],
   "achievements": ["...", "...", "..."]
 }
 
@@ -563,39 +510,32 @@ Critical Requirements:
 
   private parseAndValidateJSON(content: string): any {
     let cleanedContent = content.trim();
-
-    // Strip BOM and zero-width characters
-    cleanedContent = cleanedContent.replace(/^[\uFEFF\u200B]+/, '');
-
-    const jsonMatch = cleanedContent.match(/```json\s*([\s\S]*?)\s*```/);
-    if (jsonMatch && jsonMatch[1]) {
-      cleanedContent = jsonMatch[1].trim();
-    } else {
-      cleanedContent = cleanedContent.replace(/```json/g, '').replace(/```/g, '').trim();
-    }
+    cleanedContent = cleanedContent.replace(/^[\uFEFF\u200B]+/, ''); // strip BOM/ZW
+    const codeFence = cleanedContent.match(/```json\s*([\s\S]*?)\s*```/);
+    if (codeFence?.[1]) cleanedContent = codeFence[1].trim();
+    else cleanedContent = cleanedContent.replace(/```json/g, '').replace(/```/g, '').trim();
 
     try {
-      const parsed = JSON.parse(cleanedContent);
-      return parsed;
+      return JSON.parse(cleanedContent);
     } catch (err) {
       console.error('JSON parsing error:', err);
-      console.error('Raw response:', cleanedContent.substring(0, 500));
+      console.error('Raw response (first 500 chars):', cleanedContent.substring(0, 500));
       throw new Error('Invalid JSON response from AI service. Please try again.');
     }
   }
 
   isConfigured(): boolean {
-    // Always return true since config is server-side
+    // Secrets live server-side; from the client we always say “configured”
     return true;
   }
 
   async checkHealth(): Promise<boolean> {
     try {
-      const response = await fetch('/.netlify/functions/ai-health');
-      const data = await response.json();
-      return data.agentRouterConfigured === true;
-    } catch (error) {
-      console.error('Health check failed:', error);
+      const res = await fetch(getHealthEndpoint());
+      const data = await res.json();
+      return data?.agentRouterConfigured === true;
+    } catch (e) {
+      console.error('Health check failed:', e);
       return false;
     }
   }
