@@ -6,27 +6,37 @@ import { useNavigate } from 'react-router-dom';
 interface OfferOverlayProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Optional: route to navigate to. Defaults to /subscriptionplandetails */
+  // Optional: action to perform (e.g., open SubscriptionPlans modal)
+  onAction?: () => void;
+  // Optional: fallback route to navigate when no onAction is provided
   targetPath?: string;
+  // Optional: button label override
+  ctaLabel?: string;
 }
 
 export const OfferOverlay: React.FC<OfferOverlayProps> = ({
   isOpen,
   onClose,
-  targetPath = '/subscriptionplandetails',
+  onAction,
+  targetPath = '/pricing',
+  ctaLabel,
 }) => {
   const navigate = useNavigate();
   if (!isOpen) return null;
 
-  const goToPlans = () => {
-    navigate(targetPath);
+  const handleActionClick = () => {
+    if (onAction) {
+      onAction();
+    } else if (targetPath) {
+      navigate(targetPath);
+    }
     onClose();
   };
 
   const onKeyActivate: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      goToPlans();
+      handleActionClick();
     }
   };
 
@@ -43,34 +53,34 @@ export const OfferOverlay: React.FC<OfferOverlayProps> = ({
         </button>
 
         <div className="p-8">
-          {/* Clickable image (navigates directly) */}
+          {/* Clickable image */}
           <div
             role="button"
             tabIndex={0}
-            onClick={goToPlans}
+            onClick={handleActionClick}
             onKeyDown={onKeyActivate}
             className="mb-6 cursor-pointer"
             title="View Subscription Plan Details"
           >
             <img
               src="https://res.cloudinary.com/dvue2zenh/image/upload/v1760781622/bqr48g8czgaqubk2kyf8.png"
-              alt="Diwali Offers"
+              alt="Limited Time Offers"
               className="w-full h-40 object-cover rounded-2xl shadow-md mx-auto"
             />
           </div>
 
-          {/* Minimal title */}
+          {/* Title */}
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">
             Diwali Offers
           </h2>
 
-          {/* CTA (navigates directly) */}
+          {/* CTA */}
           <button
-            onClick={goToPlans}
+            onClick={handleActionClick}
             className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
           >
             <Sparkles className="w-5 h-5" />
-            <span>View Plan Details</span>
+            <span>{ctaLabel ?? 'View All Plans & Add-ons'}</span>
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>
