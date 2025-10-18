@@ -100,14 +100,7 @@ export const DiwaliOfferBanner: React.FC<DiwaliOfferBannerProps> = ({ onCTAClick
               Claim Now
             </button>
 
-            {/* Close Button */}
-            <button
-              onClick={() => setIsVisible(false)}
-              className="p-1.5 sm:p-2 hover:bg-white/20 rounded-full transition-colors flex-shrink-0"
-              aria-label="Close banner"
-            >
-              <X className="w-4 h-4 sm:w-5 sm:h-5" />
-            </button>
+           
           </div>
         </div>
       </motion.div>
