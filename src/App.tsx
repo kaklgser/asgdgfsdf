@@ -611,14 +611,16 @@ const handleDiwaliCTAClick = useCallback(() => {
         />
 
         {showWelcomeOffer && (
-          <OfferOverlay
-            isOpen={showWelcomeOffer}
-            onClose={() => setShowWelcomeOffer(false)}
-            onAction={() => {
-              navigate('/guided-builder');
-              setShowWelcomeOffer(false);
-            }}
-          />
+         <OfferOverlay
+          isOpen={showWelcomeOffer}
+          onClose={() => setShowWelcomeOffer(false)}
+          // Open the SubscriptionPlans modal like the Home page button
+          onAction={() => {
+            setShowSubscriptionPlans(true);
+            setInitialExpandAddons(false);
+          }}
+          ctaLabel="View All Plans & Add-ons"
+        />
         )}
 
         {showProfileManagement && (
