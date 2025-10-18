@@ -14,7 +14,7 @@ type TimeLeft = { days: number; hours: number; minutes: number; seconds: number 
 export const DiwaliOfferBanner: React.FC<DiwaliOfferBannerProps> = ({
   onCTAClick,
   hideOnExpire = true,
-  endAtISO = '2025-11-15T23:59:59+05:30', // IST-safe default
+  endAtISO = '2025-10-15T23:59:59+05:30', // IST-safe default
 }) => {
   const [isVisible, setIsVisible] = useState(true);
   const [timeLeft, setTimeLeft] = useState<TimeLeft>({
