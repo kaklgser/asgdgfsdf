@@ -757,11 +757,12 @@ class PaymentService {
       discountAmount = Math.floor(originalPrice * 0.5); // 50% off
       finalAmount = originalPrice - discountAmount;
       message = 'PRIMOBOOST coupon applied! 50% off!';
-    } else if (normalizedCoupon === 'diwali' && planId === 'achiever_plan') {
-      discountAmount = Math.floor(originalPrice * 0.9); // 90% off on ₹3200
-      finalAmount = originalPrice - discountAmount;    // Final price will be ₹320
-      message = 'DIWALI coupon applied! 90% off!';
-    } else {
+    } else if (normalizedCoupon === 'diwali') {
+  // DIWALI coupon works on ALL plans with 90% discount
+  discountAmount = Math.floor(originalPrice * 0.9); // 90% off
+  finalAmount = originalPrice - discountAmount;
+  message = '🎉 DIWALI SPECIAL: 90% OFF Applied! Limited time offer!';
+}  else {
       return { couponApplied: null, discountAmount: 0, finalAmount: originalPrice, error: 'Invalid coupon code or not applicable to selected plan', isValid: false, message: 'Invalid coupon code or not applicable to selected plan' };
     }
 
