@@ -266,7 +266,7 @@ serve(async (req) => {
         .from('payment_transactions')
         .select('id', { count: 'exact' })
         .eq('user_id', user.id)
-        .eq('coupon_code', normalizedCoupon)
+        .ilike('coupon_code', normalizedCoupon)
         .in('status', ['success', 'pending']);
 
       if (userCouponUsageError) {
