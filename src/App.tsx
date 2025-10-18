@@ -1,6 +1,6 @@
 // src/App.tsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { Menu, X, Home, Info, BookOpen, Phone, FileText, LogIn, LogOut, User, Wallet, Briefcase, Crown } from 'lucide-react'; // Added Crown for admin
+import { Menu, X, Home, Info, BookOpen, Phone, FileText, LogIn, LogOut, User, Wallet, Briefcase, Crown } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import { Header } from './components/Header';
 import { Navigation } from './components/navigation/Navigation';
@@ -70,16 +70,11 @@ function App() {
   const [planSelectionFeatureId, setPlanSelectionFeatureId] = useState<string | undefined>(undefined);
   const [initialExpandAddons, setInitialExpandAddons] = useState(true);
 
-  // MODIFIED LINE 70: Renamed showVinayakaOffer to showWelcomeOffer
   const [showWelcomeOffer, setShowWelcomeOffer] = useState(false);
+  const [showDiwaliBanner, setShowDiwaliBanner] = useState(true);
 
-  // NEW STATE: To track if message generation was interrupted due to credit
   const [messageGenerationInterrupted, setMessageGenerationInterrupted] = useState(false);
-
-  // NEW STATE: Callback to execute after successful authentication
   const [postAuthCallback, setPostAuthCallback] = useState<(() => void) | null>(null);
-
-  // Tool trigger shared state
   const [toolProcessTrigger, setToolProcessTrigger] = useState<(() => void) | null>(null);
 
   const logoImage =
@@ -89,18 +84,16 @@ function App() {
     setShowMobileMenu((v) => !v);
   }, []);
 
-  // MODIFIED: handleShowAuth to accept an optional callback
   const handleShowAuth = useCallback((callback?: () => void) => {
     console.log('handleShowAuth called in App.tsx');
     setShowAuthModal(true);
     setAuthModalInitialView('login');
     console.log('showAuthModal set to true');
     setShowMobileMenu(false);
-    // Ensure postAuthCallback is a function or null
-    if (typeof callback === 'function') { // Explicitly check if it's a function
+    if (typeof callback === 'function') {
       setPostAuthCallback(() => callback);
     } else {
-      setPostAuthCallback(null); // Set to null if no valid callback is provided
+      setPostAuthCallback(null);
     }
   }, []);
 
@@ -141,35 +134,32 @@ function App() {
       setAlertActionText(actionText);
       setAlertActionCallback(() => {
         if (onAction) onAction();
-        setShowAlertModal(false); // Always close on action
+        setShowAlertModal(false);
       });
       setShowAlertModal(true);
 
-      // Auto-dismiss if no action button is present
       if (!actionText) {
         setTimeout(() => {
           setShowAlertModal(false);
-        }, 5000); // Dismiss after 5 seconds
+        }, 5000);
       }
     },
     []
   );
 
-  // 🔑 Trigger analysis immediately after subscription success
   const handleSubscriptionSuccess = useCallback(async () => {
     setShowSubscriptionPlans(false);
     setShowPlanSelectionModal(false);
-    setSuccessMessage('Subscription activated successfully!');
+    setSuccessMessage('🪔 Subscription activated successfully! Happy Diwali! 🎉');
     setShowSuccessNotification(true);
     setTimeout(() => {
       setShowSuccessNotification(false);
       setSuccessMessage('');
-    }, 3000);
+    }, 5000);
 
     await fetchSubscription();
     setWalletRefreshKey((prev) => prev + 1);
 
-    // Give React a microtask to propagate new props to children, then trigger the tool
     queueMicrotask(() => {
       if (toolProcessTrigger) {
         console.log('App.tsx: Running toolProcessTrigger after subscription success');
@@ -201,16 +191,13 @@ function App() {
       }
       handleShowAlert('Purchase Complete', message, 'success');
 
-      // Ensure the modal is closed before triggering the tool
-      setShowPlanSelectionModal(false); // Close the PlanSelectionModal
-      setShowSubscriptionPlans(false); // Also close SubscriptionPlans if it was open
+      setShowPlanSelectionModal(false);
+      setShowSubscriptionPlans(false);
 
-      // Give React a microtask to propagate new props to children, then trigger the tool
       queueMicrotask(() => {
         if (toolProcessTrigger) {
           console.log('App.tsx: Executing toolProcessTrigger for feature:', featureId);
           toolProcessTrigger();
-          // setToolProcessTrigger(null); // Only nullify if you want it to fire only once per session
         }
       });
     },
@@ -258,6 +245,11 @@ function App() {
     setInitialExpandAddons(false);
   }, []);
 
+  const handleDiwaliCTAClick = useCallback(() => {
+    handleShowPlanSelection(undefined, false);
+    setShowDiwaliBanner(false);
+  }, [handleShowPlanSelection]);
+
   const handlePageChange = useCallback(
     (path: string) => {
       if (path === 'menu') {
@@ -290,8 +282,7 @@ function App() {
       }
     };
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener(
-      'resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -330,7 +321,6 @@ function App() {
         setShowAuthModal(false);
         setIsAuthModalOpenedByHash(false);
         setAuthModalInitialView('login');
-        // Execute post-auth callback if any
         if (postAuthCallback) {
           postAuthCallback();
           setPostAuthCallback(null);
@@ -352,7 +342,6 @@ function App() {
         console.log('App.tsx useEffect: User authenticated and profile complete, ensuring AuthModal is closed.');
         setShowAuthModal(false);
         setAuthModalInitialView('login');
-        // Execute post-auth callback if any
         if (postAuthCallback) {
           postAuthCallback();
           setPostAuthCallback(null);
@@ -360,24 +349,21 @@ function App() {
       }
     } else {
       console.log('App.tsx useEffect: User not authenticated, ensuring AuthModal is closed.');
-      // REMOVED: setShowAuthModal(false);
       setAuthModalInitialView('login');
     }
   }, [isAuthenticated, user, user?.hasSeenProfilePrompt, isLoading, isAuthModalOpenedByHash, postAuthCallback]);
 
-  // NEW useEffect: Monitor showProfileManagement
   useEffect(() => {
     console.log('App.tsx: showProfileManagement state changed to:', showProfileManagement);
   }, [showProfileManagement]);
 
-  // MODIFIED LINES 200-210: Updated useEffect for the new welcome offer
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
 
     if (location.pathname === '/') {
       timer = setTimeout(() => {
         setShowWelcomeOffer(true);
-      }, 2000); // Show after 2 seconds on home page only
+      }, 2000);
     } else {
       setShowWelcomeOffer(false);
     }
@@ -406,231 +392,244 @@ function App() {
 
   return (
     <div className="min-h-screen pb-safe-bottom safe-area bg-white dark:bg-dark-50 transition-colors duration-300">
-      {showSuccessNotification && (
-        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 p-3 bg-green-500 text-white rounded-lg shadow-lg animate-fade-in-down dark:bg-neon-cyan-500 dark:shadow-neon-cyan">
-          {successMessage}
-        </div>
-      )}
+      {/* Diwali Banner */}
+      {showDiwaliBanner && <DiwaliOfferBanner onCTAClick={handleDiwaliCTAClick} />}
 
-      <Header onMobileMenuToggle={handleMobileMenuToggle} showMobileMenu={showMobileMenu} onShowProfile={handleShowProfile}>
-        <Navigation onPageChange={handlePageChange} />
-      </Header>
+      {/* Add padding-top to account for the banner */}
+      <div className={showDiwaliBanner ? 'pt-20 sm:pt-24' : ''}>
+        {showSuccessNotification && (
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 p-3 bg-green-500 text-white rounded-lg shadow-lg animate-fade-in-down dark:bg-neon-cyan-500 dark:shadow-neon-cyan">
+            {successMessage}
+          </div>
+        )}
 
-      <Routes>
-        <Route path="/" element={<><HomePage {...commonPageProps} /><FloatingChatbot /></>} />
-        <Route
-          path="/optimizer"
-          element={
-            <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-              <ResumeOptimizer
-                isAuthenticated={isAuthenticated}
-                onShowAuth={handleShowAuth}
-                onShowProfile={handleShowProfile}
-                onNavigateBack={handleNavigateHome}
-                onShowPlanSelection={handleShowPlanSelection}
-                userSubscription={userSubscription}
-                refreshUserSubscription={refreshUserSubscription}
-                toolProcessTrigger={toolProcessTrigger}
-                setToolProcessTrigger={setToolProcessTrigger}
-              />
-            </main>
-          }
-        />
-        <Route path="/score-checker" element={<ResumeScoreChecker {...commonPageProps} />} />
-        <Route path="/guided-builder" element={<GuidedResumeBuilder {...commonPageProps} />} />
-        <Route path="/linkedin-generator" element={<LinkedInMessageGenerator {...commonPageProps} />} />
-        <Route path="/portfolio-builder" element={<PortfolioBuilderPage isAuthenticated={isAuthenticated} onShowAuth={handleShowAuth} />} />
-        <Route path="/about" element={<AboutUs />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/tutorials" element={<Tutorials />} />
-        <Route path="/all-tools" element={<ToolsAndPagesNavigation {...commonPageProps} />} />
-        <Route path="/pricing" element={<PricingPage onShowAuth={handleShowAuth} onShowSubscriptionPlans={handleShowPlanSelection} />} />
-        <Route path="/careers" element={<CareersPage {...commonPageProps} />} />
-        <Route path="/careers/:jobId" element={<JobDetailsPage {...commonPageProps} />} />
-        <Route path="/jobs" element={<JobsPage {...commonPageProps} onShowProfile={handleShowProfile} />} />
-        <Route path="/jobs/:jobId" element={<JobDetailsPage {...commonPageProps} />} />
-        <Route path="/jobs/:jobId/apply" element={<JobApplicationPage />} />
-        <Route path="/jobs/:jobId/apply-form" element={<JobApplicationFormPage />} />
-        <Route path="/jobs/applications" element={<MyApplicationsPage {...commonPageProps} />} />
-        <Route path="/admin/jobs" element={
-          <AdminRoute>
-            <AdminJobsPage />
-          </AdminRoute>
-        } />
-        <Route path="/admin/jobs/new" element={
-          <AdminRoute>
-            <JobUploadForm />
-          </AdminRoute>
-        } />
-        <Route path="/admin/jobs/:jobId/edit" element={
-          <AdminRoute>
-            <JobEditPage />
-          </AdminRoute>
-        } />
-        <Route path="/admin/users" element={
-          <AdminRoute>
-            <AdminUsersPage />
-          </AdminRoute>
-        } />
-      </Routes>
+        <Header onMobileMenuToggle={handleMobileMenuToggle} showMobileMenu={showMobileMenu} onShowProfile={handleShowProfile}>
+          <Navigation onPageChange={handlePageChange} />
+        </Header>
 
-      {showMobileMenu && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm dark:bg-black/70" onClick={() => setShowMobileMenu(false)} />
-          <div className="fixed top-0 right-0 h-full w-80 max-w-[90vw] bg-white shadow-2xl overflow-y-auto safe-area dark:bg-dark-100 dark:shadow-dark-xl">
-            <div className="flex flex-col space-y-4 p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-lg">
-                    <img src={logoImage} alt="PrimoBoost AI Logo" className="w-full h-full object-cover" />
-                  </div>
-                  <h1 className="text-lg sm:text-xl font-bold text-secondary-900 dark:text-gray-100">PrimoBoost AI</h1>
-                </div>
-                <button
-                  onClick={() => setShowMobileMenu(false)}
-                  className="min-w-touch min-h-touch p-2 text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100 rounded-lg transition-colors dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-dark-200"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              <div className="border-t border-secondary-200 pt-4 dark:border-dark-300">
-                <nav className="flex flex-col space-y-4">
-                  {[
-                    { id: '/', label: 'Home', icon: <Home className="w-5 h-5" /> },
-                    { id: '/about', label: 'About Us', icon: <Info className="w-5 h-5" /> },
-                    { id: '/careers', label: 'Careers', icon: <Briefcase className="w-5 h-5" /> },
-                    { id: '/jobs', label: 'Explore Jobs', icon: <Briefcase className="w-5 h-5" /> },
-                    ...(user?.role === 'admin' ? [{ id: '/admin/jobs', label: 'Admin Panel', icon: <Crown className="w-5 h-5" /> }] : []),
-                    { id: '/tutorials', label: 'Tutorials', icon: <BookOpen className="w-5 h-5" /> },
-                    { id: '/contact', label: 'Contact', icon: <Phone className="w-5 h-5" /> },
-                    ...(isAuthenticated ? [{ id: 'wallet', label: 'Referral & Wallet', icon: <Wallet className="w-5 h-5" /> }] : []),
-                    ...(isAuthenticated ? [{ id: '/jobs/applications', label: 'My Applications', icon: <FileText className="w-5 h-5" /> }] : []), // ADDED: Applications link
-                  ].map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        handlePageChange(item.id);
-                      }}
-                      className={`flex items-center space-x-3 min-h-touch px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
-                        window.location.pathname === item.id
-                          ? 'bg-primary-100 text-primary-700 shadow-md dark:bg-dark-200 dark:text-neon-cyan-400'
-                          : 'text-secondary-700 hover:text-primary-600 hover:bg-primary-50 dark:text-gray-300 dark:hover:text-neon-cyan-400 dark:hover:bg-dark-200'
-                      }`}
-                    >
-                      {item.icon}
-                      <span>{item.label}</span>
-                    </button>
-                  ))}
-                </nav>
-              </div>
-
-              <div className="border-t border-secondary-200 pt-4 dark:border-dark-300">
-                <AuthButtons
-                  onPageChange={handlePageChange}
-                  onClose={() => setShowMobileMenu(false)}
+        <Routes>
+          <Route path="/" element={<><HomePage {...commonPageProps} /><FloatingChatbot /></>} />
+          <Route
+            path="/optimizer"
+            element={
+              <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+                <ResumeOptimizer
+                  isAuthenticated={isAuthenticated}
                   onShowAuth={handleShowAuth}
                   onShowProfile={handleShowProfile}
+                  onNavigateBack={handleNavigateHome}
+                  onShowPlanSelection={handleShowPlanSelection}
+                  userSubscription={userSubscription}
+                  refreshUserSubscription={refreshUserSubscription}
+                  toolProcessTrigger={toolProcessTrigger}
+                  setToolProcessTrigger={setToolProcessTrigger}
                 />
-              </div>
-                  
+              </main>
+            }
+          />
+          <Route path="/score-checker" element={<ResumeScoreChecker {...commonPageProps} />} />
+          <Route path="/guided-builder" element={<GuidedResumeBuilder {...commonPageProps} />} />
+          <Route path="/linkedin-generator" element={<LinkedInMessageGenerator {...commonPageProps} />} />
+          <Route path="/portfolio-builder" element={<PortfolioBuilderPage isAuthenticated={isAuthenticated} onShowAuth={handleShowAuth} />} />
+          <Route path="/about" element={<AboutUs />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/tutorials" element={<Tutorials />} />
+          <Route path="/all-tools" element={<ToolsAndPagesNavigation {...commonPageProps} />} />
+          <Route path="/pricing" element={<PricingPage onShowAuth={handleShowAuth} onShowSubscriptionPlans={handleShowPlanSelection} />} />
+          <Route path="/careers" element={<CareersPage {...commonPageProps} />} />
+          <Route path="/careers/:jobId" element={<JobDetailsPage {...commonPageProps} />} />
+          <Route path="/jobs" element={<JobsPage {...commonPageProps} onShowProfile={handleShowProfile} />} />
+          <Route path="/jobs/:jobId" element={<JobDetailsPage {...commonPageProps} />} />
+          <Route path="/jobs/:jobId/apply" element={<JobApplicationPage />} />
+          <Route path="/jobs/:jobId/apply-form" element={<JobApplicationFormPage />} />
+          <Route path="/jobs/applications" element={<MyApplicationsPage {...commonPageProps} />} />
+          <Route
+            path="/admin/jobs"
+            element={
+              <AdminRoute>
+                <AdminJobsPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/jobs/new"
+            element={
+              <AdminRoute>
+                <JobUploadForm />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/jobs/:jobId/edit"
+            element={
+              <AdminRoute>
+                <JobEditPage />
+              </AdminRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <AdminRoute>
+                <AdminUsersPage />
+              </AdminRoute>
+            }
+          />
+        </Routes>
 
-              <div className="mt-auto pt-4 border-t border-secondary-200 dark:border-dark-300">
-                <div className="bg-gradient-to-r from-primary-50 to-accent-50 rounded-xl p-4 dark:from-dark-200 dark:to-dark-300">
-                  <p className="text-sm text-secondary-700 mb-2 dark:text-gray-300">Need help with your resume?</p>
+        {showMobileMenu && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm dark:bg-black/70" onClick={() => setShowMobileMenu(false)} />
+            <div className="fixed top-0 right-0 h-full w-80 max-w-[90vw] bg-white shadow-2xl overflow-y-auto safe-area dark:bg-dark-100 dark:shadow-dark-xl">
+              <div className="flex flex-col space-y-4 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl overflow-hidden shadow-lg">
+                      <img src={logoImage} alt="PrimoBoost AI Logo" className="w-full h-full object-cover" />
+                    </div>
+                    <h1 className="text-lg sm:text-xl font-bold text-secondary-900 dark:text-gray-100">PrimoBoost AI</h1>
+                  </div>
                   <button
-                    onClick={() => {
-                      handlePageChange('/');
-                      setShowMobileMenu(false);
-                    }}
-                    className="w-full btn-primary text-sm flex items-center justify-center space-x-2 shadow-neon-cyan"
+                    onClick={() => setShowMobileMenu(false)}
+                    className="min-w-touch min-h-touch p-2 text-secondary-600 hover:text-secondary-900 hover:bg-secondary-100 rounded-lg transition-colors dark:text-gray-400 dark:hover:text-gray-100 dark:hover:bg-dark-200"
                   >
-                    <FileText className="w-4 h-4" />
-                    <span>Optimize Now</span>
+                    <X className="w-6 h-6" />
                   </button>
+                </div>
+
+                <div className="border-t border-secondary-200 pt-4 dark:border-dark-300">
+                  <nav className="flex flex-col space-y-4">
+                    {[
+                      { id: '/', label: 'Home', icon: <Home className="w-5 h-5" /> },
+                      { id: '/about', label: 'About Us', icon: <Info className="w-5 h-5" /> },
+                      { id: '/careers', label: 'Careers', icon: <Briefcase className="w-5 h-5" /> },
+                      { id: '/jobs', label: 'Explore Jobs', icon: <Briefcase className="w-5 h-5" /> },
+                      ...(user?.role === 'admin' ? [{ id: '/admin/jobs', label: 'Admin Panel', icon: <Crown className="w-5 h-5" /> }] : []),
+                      { id: '/tutorials', label: 'Tutorials', icon: <BookOpen className="w-5 h-5" /> },
+                      { id: '/contact', label: 'Contact', icon: <Phone className="w-5 h-5" /> },
+                      ...(isAuthenticated ? [{ id: 'wallet', label: 'Referral & Wallet', icon: <Wallet className="w-5 h-5" /> }] : []),
+                      ...(isAuthenticated ? [{ id: '/jobs/applications', label: 'My Applications', icon: <FileText className="w-5 h-5" /> }] : []),
+                    ].map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          handlePageChange(item.id);
+                        }}
+                        className={`flex items-center space-x-3 min-h-touch px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
+                          window.location.pathname === item.id
+                            ? 'bg-primary-100 text-primary-700 shadow-md dark:bg-dark-200 dark:text-neon-cyan-400'
+                            : 'text-secondary-700 hover:text-primary-600 hover:bg-primary-50 dark:text-gray-300 dark:hover:text-neon-cyan-400 dark:hover:bg-dark-200'
+                        }`}
+                      >
+                        {item.icon}
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </nav>
+                </div>
+
+                <div className="border-t border-secondary-200 pt-4 dark:border-dark-300">
+                  <AuthButtons
+                    onPageChange={handlePageChange}
+                    onClose={() => setShowMobileMenu(false)}
+                    onShowAuth={handleShowAuth}
+                    onShowProfile={handleShowProfile}
+                  />
+                </div>
+
+                <div className="mt-auto pt-4 border-t border-secondary-200 dark:border-dark-300">
+                  <div className="bg-gradient-to-r from-primary-50 to-accent-50 rounded-xl p-4 dark:from-dark-200 dark:to-dark-300">
+                    <p className="text-sm text-secondary-700 mb-2 dark:text-gray-300">Need help with your resume?</p>
+                    <button
+                      onClick={() => {
+                        handlePageChange('/');
+                        setShowMobileMenu(false);
+                      }}
+                      className="w-full btn-primary text-sm flex items-center justify-center space-x-2 shadow-neon-cyan"
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Optimize Now</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <AuthModal
-         isOpen={showAuthModal}
-  onClose={() => {
-    // 👇 mark seen if user closed the post-signup prompt via X/backdrop
-    if (authModalInitialView === 'postSignupPrompt' && user) {
-      markProfilePromptSeen();
-    }
-    setShowAuthModal(false);
-    setAuthModalInitialView('login');
-    setIsAuthModalOpenedByHash(false);
-  }}
-        onProfileFillRequest={() => handleShowProfile('profile', true)}
-        initialView={authModalInitialView}
-        onPromptDismissed={() => {
-          if (user) {
-            markProfilePromptSeen();
-          }
-          setShowAuthModal(false);
-          setAuthModalInitialView('login');
-          setIsAuthModalOpenedByHash(false);
-        }}
-      />
-
-      <PlanSelectionModal
-        isOpen={showPlanSelectionModal}
-        onClose={() => setShowPlanSelectionModal(false)}
-        onSelectCareerPlans={handleSelectCareerPlans}
-        onSubscriptionSuccess={handleSubscriptionSuccess}
-        onShowAlert={handleShowAlert}
-        triggeredByFeatureId={planSelectionFeatureId}
-        onAddonPurchaseSuccess={handleAddonPurchaseSuccess}
-      />
-
-      {showSubscriptionPlans && (
-        <SubscriptionPlans
-          isOpen={showSubscriptionPlans}
-          onNavigateBack={() => setShowSubscriptionPlans(false)}
-          onSubscriptionSuccess={handleSubscriptionSuccess}
-          onShowAlert={handleShowAlert}
-          initialExpandAddons={initialExpandAddons}
-          // REMOVED LINES 290-291: Removed initialPlanId and initialCouponCode
-        />
-      )}
-
-      <AlertModal
-        isOpen={showAlertModal}
-        onClose={() => setShowAlertModal(false)}
-        title={alertTitle}
-        message={alertMessage}
-        type={alertType}
-        actionText={alertActionText}
-        onAction={alertActionCallback}
-      />
-
-      {/* MODIFIED LINE 300: Updated OfferOverlay prop */}
-      {showWelcomeOffer && (
-        <OfferOverlay
-          isOpen={showWelcomeOffer}
-          onClose={() => setShowWelcomeOffer(false)}
-          // MODIFIED LINES 302-305: Updated onAction to navigate to /optimizer
-          onAction={() => {
-            navigate('/guided-builder');
-            setShowWelcomeOffer(false);
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => {
+            if (authModalInitialView === 'postSignupPrompt' && user) {
+              markProfilePromptSeen();
+            }
+            setShowAuthModal(false);
+            setAuthModalInitialView('login');
+            setIsAuthModalOpenedByHash(false);
+          }}
+          onProfileFillRequest={() => handleShowProfile('profile', true)}
+          initialView={authModalInitialView}
+          onPromptDismissed={() => {
+            if (user) {
+              markProfilePromptSeen();
+            }
+            setShowAuthModal(false);
+            setAuthModalInitialView('login');
+            setIsAuthModalOpenedByHash(false);
           }}
         />
-      )}
 
-      {showProfileManagement && (
-        <UserProfileManagement
-          isOpen={showProfileManagement}
-          onClose={() => setShowProfileManagement(false)}
-          viewMode={profileViewMode}
-          walletRefreshKey={walletRefreshKey}
-          setWalletRefreshKey={setWalletRefreshKey}
+        <PlanSelectionModal
+          isOpen={showPlanSelectionModal}
+          onClose={() => setShowPlanSelectionModal(false)}
+          onSelectCareerPlans={handleSelectCareerPlans}
+          onSubscriptionSuccess={handleSubscriptionSuccess}
+          onShowAlert={handleShowAlert}
+          triggeredByFeatureId={planSelectionFeatureId}
+          onAddonPurchaseSuccess={handleAddonPurchaseSuccess}
         />
-      )}
+
+        {showSubscriptionPlans && (
+          <SubscriptionPlans
+            isOpen={showSubscriptionPlans}
+            onNavigateBack={() => setShowSubscriptionPlans(false)}
+            onSubscriptionSuccess={handleSubscriptionSuccess}
+            onShowAlert={handleShowAlert}
+            initialExpandAddons={initialExpandAddons}
+          />
+        )}
+
+        <AlertModal
+          isOpen={showAlertModal}
+          onClose={() => setShowAlertModal(false)}
+          title={alertTitle}
+          message={alertMessage}
+          type={alertType}
+          actionText={alertActionText}
+          onAction={alertActionCallback}
+        />
+
+        {showWelcomeOffer && (
+          <OfferOverlay
+            isOpen={showWelcomeOffer}
+            onClose={() => setShowWelcomeOffer(false)}
+            onAction={() => {
+              navigate('/guided-builder');
+              setShowWelcomeOffer(false);
+            }}
+          />
+        )}
+
+        {showProfileManagement && (
+          <UserProfileManagement
+            isOpen={showProfileManagement}
+            onClose={() => setShowProfileManagement(false)}
+            viewMode={profileViewMode}
+            walletRefreshKey={walletRefreshKey}
+            setWalletRefreshKey={setWalletRefreshKey}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -713,4 +712,3 @@ const AuthButtons: React.FC<{
 };
 
 export default App;
-
