@@ -1,30 +1,32 @@
 // src/components/OfferOverlay.tsx
 import React from 'react';
 import { X, Sparkles, ArrowRight } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface OfferOverlayProps {
   isOpen: boolean;
   onClose: () => void;
-  /** Pass onShowSubscriptionPlansDirectly here */
-  onAction?: () => void;
+  /** Optional: route to navigate to. Defaults to /subscriptionplandetails */
+  targetPath?: string;
 }
 
 export const OfferOverlay: React.FC<OfferOverlayProps> = ({
   isOpen,
   onClose,
-  onAction,
+  targetPath = '/subscriptionplandetails',
 }) => {
+  const navigate = useNavigate();
   if (!isOpen) return null;
 
-  const viewPlans = () => {
-    onAction?.(); // open All Plans & Add-ons
-    onClose();    // close overlay
+  const goToPlans = () => {
+    navigate(targetPath);
+    onClose();
   };
 
   const onKeyActivate: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      viewPlans();
+      goToPlans();
     }
   };
 
@@ -41,14 +43,14 @@ export const OfferOverlay: React.FC<OfferOverlayProps> = ({
         </button>
 
         <div className="p-8">
-          {/* Clickable image */}
+          {/* Clickable image (navigates directly) */}
           <div
             role="button"
             tabIndex={0}
-            onClick={viewPlans}
+            onClick={goToPlans}
             onKeyDown={onKeyActivate}
             className="mb-6 cursor-pointer"
-            title="View All Plans & Add-ons"
+            title="View Subscription Plan Details"
           >
             <img
               src="https://res.cloudinary.com/dvue2zenh/image/upload/v1760781622/bqr48g8czgaqubk2kyf8.png"
@@ -57,18 +59,18 @@ export const OfferOverlay: React.FC<OfferOverlayProps> = ({
             />
           </div>
 
-          {/* Only the title */}
+          {/* Minimal title */}
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">
             Diwali Offers
           </h2>
 
-          {/* CTA */}
+          {/* CTA (navigates directly) */}
           <button
-            onClick={viewPlans}
+            onClick={goToPlans}
             className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
           >
             <Sparkles className="w-5 h-5" />
-            <span>View All Plans & Add-ons</span>
+            <span>View Plan Details</span>
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>
