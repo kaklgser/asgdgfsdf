@@ -1,5 +1,5 @@
 // src/components/DiwaliOfferBanner.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Sparkles, Gift } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,28 +11,33 @@ export const DiwaliOfferBanner: React.FC<DiwaliOfferBannerProps> = ({ onCTAClick
   const [isVisible, setIsVisible] = useState(true);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
-  // Set your Diwali offer end date here (Adjust this date as needed)
-  const offerEndDate = new Date('2024-11-15T23:59:59');
+  // ✅ End at end-of-day, 3 days from now
+  const offerEndTs = useMemo(() => {
+    const end = new Date();
+    end.setDate(end.getDate() + 3);
+    end.setHours(23, 59, 59, 0);
+    return end.getTime();
+  }, []);
 
   useEffect(() => {
-    const calculateTimeLeft = () => {
-      const difference = offerEndDate.getTime() - new Date().getTime();
-      
-      if (difference > 0) {
-        setTimeLeft({
-          days: Math.floor(difference / (1000 * 60 * 60 * 24)),
-          hours: Math.floor((difference / (1000 * 60 * 60)) % 24),
-          minutes: Math.floor((difference / 1000 / 60) % 60),
-          seconds: Math.floor((difference / 1000) % 60),
-        });
-      }
+    const tick = () => {
+      const now = Date.now();
+      const diff = Math.max(0, offerEndTs - now);
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      setTimeLeft({ days, hours, minutes, seconds });
+
+      if (diff === 0) setIsVisible(false); // auto-hide on expiry
     };
 
-    calculateTimeLeft();
-    const timer = setInterval(calculateTimeLeft, 1000);
-
+    tick(); // initial
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [offerEndTs]);
 
   if (!isVisible) return null;
 
@@ -51,12 +56,10 @@ export const DiwaliOfferBanner: React.FC<DiwaliOfferBannerProps> = ({ onCTAClick
                 <Gift className="w-5 h-5 sm:w-6 sm:h-6 animate-bounce" />
                 <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 animate-pulse" />
               </div>
-              
+
               <div className="flex-1 min-w-0">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3">
-                  <h3 className="text-base sm:text-lg md:text-xl font-bold truncate">
-                    🪔 Diwali Special!
-                  </h3>
+                  <h3 className="text-base sm:text-lg md:text-xl font-bold truncate">🪔 Diwali Special!</h3>
                   <span className="text-xl sm:text-2xl md:text-3xl font-extrabold bg-white text-orange-600 px-2 py-0.5 sm:px-3 sm:py-1 rounded-lg shadow-lg inline-block">
                     90% OFF
                   </span>
@@ -81,6 +84,12 @@ export const DiwaliOfferBanner: React.FC<DiwaliOfferBannerProps> = ({ onCTAClick
                 <div className="text-lg sm:text-xl font-bold">{timeLeft.minutes}</div>
                 <div className="text-xs">Mins</div>
               </div>
+              {/* Uncomment if you want seconds too:
+              <div className="text-center bg-white/20 px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg backdrop-blur-sm">
+                <div className="text-lg sm:text-xl font-bold">{timeLeft.seconds}</div>
+                <div className="text-xs">Secs</div>
+              </div>
+              */}
             </div>
 
             {/* CTA Button */}
@@ -105,3 +114,5 @@ export const DiwaliOfferBanner: React.FC<DiwaliOfferBannerProps> = ({ onCTAClick
     </AnimatePresence>
   );
 };
+
+export default DiwaliOfferBanner;
