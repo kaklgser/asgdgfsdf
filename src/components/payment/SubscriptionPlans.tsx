@@ -1,13 +1,13 @@
 // src/components/payment/SubscriptionPlans.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import { motion } from 'framer-motion'; // Import motion
+import { motion } from 'framer-motion';
 import {
   Check,
   Star,
   Zap,
   Crown,
   Clock,
-  X, // Ensure X is imported
+  X,
   Tag,
   Sparkles,
   ArrowRight,
@@ -24,9 +24,9 @@ import {
   Wrench,
   Gift,
   Plus,
-  ChevronDown, // Added for add-ons toggle
-  ChevronUp,   // Added for add-ons toggle
-  Wallet     // Added for wallet section
+  ChevronDown,
+  ChevronUp,
+  Wallet
 } from 'lucide-react';
 import { SubscriptionPlan } from '../../types/payment';
 import { paymentService } from '../../services/paymentService';
@@ -37,9 +37,8 @@ interface SubscriptionPlansProps {
   isOpen: boolean;
   onNavigateBack: () => void;
   onSubscriptionSuccess: () => void;
-  // ADDED: onShowAlert prop
   onShowAlert: (title: string, message: string, type?: 'info' | 'success' | 'warning' | 'error', actionText?: string, onAction?: () => void) => void;
-  initialExpandAddons?: boolean; // NEW PROP
+  initialExpandAddons?: boolean;
 }
 
 type AddOn = {
@@ -50,54 +49,50 @@ type AddOn = {
 
 type AppliedCoupon = {
   code: string;
-  discount: number; // In paise
-  finalAmount: number; // In paise
+  discount: number;
+  finalAmount: number;
 };
 
 export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
   isOpen,
   onNavigateBack,
   onSubscriptionSuccess,
-  onShowAlert, // ADDED: Destructure onShowAlert
-  initialExpandAddons, // NEW: Destructure initialExpandAddons
+  onShowAlert,
+  initialExpandAddons,
 }) => {
   const { user } = useAuth();
-  // MODIFIED: Change initial state to 'career_boost_plus'
-  const [selectedPlan, setSelectedPlan] = useState<string | null>(null); // Changed initial state to null
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  // Initial slide set to index 2 to correspond to 'career_boost_plus' if it's the 3rd plan in the array (0-indexed).
-  // This might need adjustment if the order of plans changes.
   const [currentSlide, setCurrentSlide] = useState(0);
   const [couponCode, setCouponCode] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [couponError, setCouponError] = useState('');
-  const [walletBalance, setWalletBalance] = useState<number>(0); // Stored in paise
+  const [walletBalance, setWalletBalance] = useState<number>(0);
   const [useWalletBalance, setUseWalletBalance] = useState<boolean>(false);
   const [loadingWallet, setLoadingWallet] = useState<boolean>(true);
-  const [showAddOns, setShowAddOns] = useState<boolean>(initialExpandAddons || false); // MODIFIED: Initialize with new prop
+  const [showAddOns, setShowAddOns] = useState<boolean>(initialExpandAddons || false);
   const [selectedAddOns, setSelectedAddOns] = useState<{ [key: string]: number }>({});
   const carouselRef = useRef<HTMLDivElement>(null);
 
   const plans: SubscriptionPlan[] = paymentService.getPlans();
   const addOns: AddOn[] = paymentService.getAddOns();
 
-  // Combine regular plans with the special "Add-ons Only" option
-  const allPlansWithAddOnOption = [
-    ...plans,
-    
-  ];
+  const allPlansWithAddOnOption = [...plans];
 
-  // REMOVED: The useEffect block that sets selectedPlan based on currentSlide.
-  // This was causing the selected plan to be overwritten by the carousel's state.
+  // ✅ NEW: Helper function to check if plan is eligible for DIWALI coupon
+  const isDiwaliEligiblePlan = (planId: string) => {
+    // Change this to match which plan(s) should be eligible
+    // For all plans: return true;
+    // For specific plan: return planId === 'achiever_plan';
+    return planId === 'achiever_plan'; // Only achiever_plan gets 90% off
+  };
 
-  // Fetch wallet balance when the component mounts or when it becomes open/user changes
   useEffect(() => {
     if (user && isOpen) {
       fetchWalletBalance();
     }
   }, [user, isOpen]);
 
-  // Function to fetch the user's wallet balance from Supabase
   const fetchWalletBalance = async () => {
     if (!user) return;
     setLoadingWallet(true);
@@ -110,11 +105,9 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
         console.error('Error fetching wallet balance:', error);
         return;
       }
-      // Filter for completed transactions and sum the amounts
       const completed = (transactions || []).filter((t: any) => t.status === 'completed');
-      // Wallet balance is stored in Rupees, convert to paise for internal use
       const balance = completed.reduce((sum: number, tr: any) => sum + parseFloat(tr.amount), 0) * 100;
-      setWalletBalance(Math.max(0, balance)); // Ensure balance is not negative
+      setWalletBalance(Math.max(0, balance));
     } catch (err) {
       console.error('Error fetching wallet data:', err);
     } finally {
@@ -124,7 +117,6 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
 
   if (!isOpen) return null;
 
-  // Helper function to return the correct Lucide icon component based on string input
   const getPlanIcon = (iconType: string) => {
     switch (iconType) {
       case 'crown':
@@ -150,7 +142,6 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
     }
   };
 
-  // Carousel navigation functions
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % allPlansWithAddOnOption.length);
   };
@@ -160,11 +151,9 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
   };
 
   const goToSlide = (index: number) => {
-    // This function can be used to directly jump to a slide (e.g., from dots)
     setCurrentSlide(index);
   };
 
-  // Handles applying a coupon code
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
       setCouponError('Please enter a coupon code');
@@ -176,62 +165,54 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
       return;
     }
 
-    // paymentService.applyCoupon now returns isValid and message
     const result = await paymentService.applyCoupon(selectedPlan, couponCode.trim(), user.id);
 
     if (result.isValid) {
       setAppliedCoupon({
-        code: result.couponApplied!, // Use non-null assertion as isValid implies couponApplied is not null
+        code: result.couponApplied!,
         discount: result.discountAmount,
         finalAmount: result.finalAmount,
       });
       setCouponError('');
-      onShowAlert('Coupon Applied!', result.message, 'success');
+      // ✅ UPDATED: Special message for DIWALI coupon
+      if (result.couponApplied?.toLowerCase() === 'diwali') {
+        onShowAlert('🪔 Diwali Offer Applied!', result.message, 'success');
+      } else {
+        onShowAlert('Coupon Applied!', result.message, 'success');
+      }
     } else {
-      setCouponError(result.message); // Display the specific error message from the service
+      setCouponError(result.message);
       setAppliedCoupon(null);
       onShowAlert('Coupon Error', result.message, 'warning');
     }
   };
 
-  // Handles removing an applied coupon
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setCouponCode('');
     setCouponError('');
   };
 
-  // Find the currently selected plan data
   const selectedPlanData = allPlansWithAddOnOption.find((p) => p.id === selectedPlan);
 
-  // Calculate add-ons total in paise
   const addOnsTotal = Object.entries(selectedAddOns).reduce((total, [addOnId, qty]) => {
     const addOn = paymentService.getAddOnById(addOnId);
-    return total + (addOn ? addOn.price * 100 * qty : 0); // Multiply addOn.price by 100 for paise
+    return total + (addOn ? addOn.price * 100 * qty : 0);
   }, 0);
 
-  // Initialize plan price from selected plan, convert to paise
   let planPrice = (selectedPlanData?.price || 0) * 100;
-  // If a coupon is applied, use the final amount from the coupon calculation
   if (appliedCoupon) {
-    planPrice = appliedCoupon.finalAmount; // appliedCoupon.finalAmount is already in paise
+    planPrice = appliedCoupon.finalAmount;
   }
 
-  // Calculate wallet deduction, limited by available wallet balance and plan price
-  const walletDeduction = useWalletBalance ? Math.min(walletBalance, planPrice) : 0; // walletBalance is in paise
-
-  // Calculate the final plan price after wallet deduction, ensuring it's not negative
+  const walletDeduction = useWalletBalance ? Math.min(walletBalance, planPrice) : 0;
   const finalPlanPrice = Math.max(0, planPrice - walletDeduction);
-
-  // Calculate the grand total including final plan price and add-ons
   const grandTotal = finalPlanPrice + addOnsTotal;
 
-  // Handles the payment process
   const handlePayment = async () => {
     if (!user || !selectedPlanData) return;
     setIsProcessing(true);
 
-    // ADDED DEBUGGING LOGS
     console.log('DEBUG: handlePayment - walletBalance (paise):', walletBalance);
     console.log('DEBUG: handlePayment - planPrice (paise, after coupon):', planPrice);
     console.log('DEBUG: handlePayment - walletDeduction (paise):', walletDeduction);
@@ -240,7 +221,6 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
     console.log('DEBUG: handlePayment - grandTotal (paise):', grandTotal);
 
     try {
-      // Retrieve the session and access token for authentication
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
       console.log('SubscriptionPlans: session object after getSession:', session);
@@ -248,7 +228,6 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
 
       if (sessionError || !session || !session.access_token) {
         console.error('SubscriptionPlans: No active session found for payment:', sessionError);
-        // Show an authentication required message to the user
         onShowAlert('Authentication Required', 'Please log in to complete your purchase.', 'error', 'Sign In', () => {});
         setIsProcessing(false);
         return;
@@ -258,52 +237,56 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
 
       console.log('SubscriptionPlans: Value of accessToken before calling processPayment:', accessToken);
 
-      // Handle zero-amount transactions (e.g., fully covered by wallet or free plan/coupon)
       if (grandTotal === 0) {
-        // Call processFreeSubscription with all relevant data
         const result = await paymentService.processFreeSubscription(
           selectedPlan,
           user.id,
           appliedCoupon ? appliedCoupon.code : undefined,
-          addOnsTotal, // addOnsTotal is already in paise
-          selectedAddOns, // Pass selectedAddOns to processFreeSubscription
-          selectedPlanData.price * 100, // Pass original plan price in paise
-          walletDeduction // Pass walletDeduction
+          addOnsTotal,
+          selectedAddOns,
+          selectedPlanData.price * 100,
+          walletDeduction
         );
         if (result.success) {
-          // Refresh wallet balance after any successful payment or free activation
           await fetchWalletBalance();
           onSubscriptionSuccess();
-          onShowAlert('Subscription Activated!', 'Your free plan has been activated successfully.', 'success');
+          // ✅ UPDATED: Special message for DIWALI coupon
+          if (appliedCoupon?.code.toLowerCase() === 'diwali') {
+            onShowAlert('🪔 Diwali Offer Activated!', 'Your subscription has been activated with 90% discount! Happy Diwali! 🎉', 'success');
+          } else {
+            onShowAlert('Subscription Activated!', 'Your free plan has been activated successfully.', 'success');
+          }
         } else {
           console.error(result.error || 'Failed to activate free plan.');
           onShowAlert('Activation Failed', result.error || 'Failed to activate free plan.', 'error');
         }
       } else {
-        // Process paid subscription
         const paymentData = {
           planId: selectedPlan,
-          amount: grandTotal, // grandTotal is already in paise
+          amount: grandTotal,
           currency: 'INR',
         };
         const result = await paymentService.processPayment(
           paymentData,
           user.email,
           user.name,
-          accessToken, // Pass the access token for authentication
+          accessToken,
           appliedCoupon ? appliedCoupon.code : undefined,
-          walletDeduction, // walletDeduction is already in paise
-          addOnsTotal, // addOnsTotal is already in paise
+          walletDeduction,
+          addOnsTotal,
           selectedAddOns
         );
         if (result.success) {
-          // Refresh wallet balance after any successful payment
           await fetchWalletBalance();
           onSubscriptionSuccess();
-          onShowAlert('Payment Successful!', 'Your subscription has been activated.', 'success');
+          // ✅ UPDATED: Special message for DIWALI coupon
+          if (appliedCoupon?.code.toLowerCase() === 'diwali') {
+            onShowAlert('🪔 Payment Successful!', 'Congratulations! You saved 90% with our Diwali offer! 🎉', 'success');
+          } else {
+            onShowAlert('Payment Successful!', 'Your subscription has been activated.', 'success');
+          }
         } else {
           console.error('Payment failed:', result.error);
-          // If payment failed, and it was due to user cancellation, show a specific message
           if (result.error && result.error.includes('Payment cancelled by user')) {
             onShowAlert('Payment Cancelled', 'You have cancelled the payment. Please try again if you wish to proceed.', 'info');
           } else {
@@ -319,24 +302,21 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
     }
   };
 
-  // Handles changing the quantity of an add-on
   const handleAddOnQuantityChange = (addOnId: string, quantity: number) => {
     console.log('DEBUG: handleAddOnQuantityChange called for:', addOnId, 'with quantity:', quantity);
     setSelectedAddOns((prev) => ({
       ...prev,
-      [addOnId]: Math.max(0, quantity), // Ensure quantity doesn't go below zero
+      [addOnId]: Math.max(0, quantity),
     }));
   };
 
-  // State for the two-step flow
-  const [currentStep, setCurrentStep] = useState(0); // 0 for plan selection, 1 for payment details
+  const [currentStep, setCurrentStep] = useState(0);
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2 sm:p-4 backdrop-blur-sm dark:bg-black/80 flex flex-col">
       <div className="bg-white rounded-xl sm:rounded-2xl lg:rounded-3xl w-full max-w-7xl max-h-[95vh] overflow-y-auto flex flex-col dark:bg-dark-100 dark:shadow-dark-xl">
         {/* Header Section */}
         <div className="relative bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 px-3 sm:px-6 py-4 sm:py-8 border-b border-gray-100 flex-shrink-0 dark:from-dark-200 dark:via-dark-300 dark:to-dark-400 dark:border-dark-500">
-          {/* Back button */}
           <button
             onClick={onNavigateBack}
             className="absolute top-2 sm:top-4 left-2 sm:left-4 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-white/50 z-10 min-w-[44px] min-h-[44px] dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-dark-300/50"
@@ -344,7 +324,6 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
             <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
 
-          {/* New X (close) button */}
           <button
             onClick={onNavigateBack}
             className="absolute top-2 sm:top-4 right-2 sm:right-4 w-10 h-10 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-white/50 z-10 min-w-[44px] min-h-[44px] dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-dark-300/50"
@@ -362,6 +341,10 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
             <p className="text-sm sm:text-lg lg:text-xl text-gray-600 dark:text-gray-300 mb-3 sm:mb-6">
               {currentStep === 0 ? 'Flexible pricing for every career stage.' : 'Review your selection and complete your purchase.'}
             </p>
+            {/* ✅ NEW: Diwali Offer Banner in Header */}
+            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 rounded-full inline-block shadow-lg animate-pulse">
+              <span className="text-sm sm:text-base font-bold">🪔 Use code DIWALI for 90% OFF! 🎉</span>
+            </div>
           </div>
         </div>
 
@@ -383,11 +366,11 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                     transition={{ type: "spring", stiffness: 400, damping: 10 }}
                     onClick={() => {
                       setSelectedPlan(plan.id);
-                      setCurrentStep(1); // Automatically move to next step
+                      setCurrentStep(1);
                     }}
                   >
                     {plan.popular && (
-                     <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                      <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
                         <span
                           className="inline-flex items-center bg-gradient-to-r from-green-500 to-emerald-500 text-white px-2 lg:px-4 py-1 lg:py-2 rounded-full text-xs lg:text-sm font-bold shadow-lg"
                           style={{ fontSize: '10px', lineHeight: '1rem' }}
@@ -395,14 +378,19 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                           <span className="mr-1 text-sm">🏆</span> {plan.id === 'career_boost_plus' ? 'Most Popular' : 'Best Value'}
                         </span>
                       </div>
-
-
                     )}
+
+                    {/* ✅ NEW: Diwali Badge for Eligible Plans */}
+                    {isDiwaliEligiblePlan(plan.id) && (
+                      <div className="absolute top-0 right-0 bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-1 rounded-bl-xl rounded-tr-xl text-xs font-bold flex items-center space-x-1 shadow-lg z-10">
+                        <Gift className="w-3 h-3" />
+                        <span>🪔 DIWALI 90% OFF</span>
+                      </div>
+                    )}
+
                     <div className="p-3 lg:p-6">
                       <div className="text-center mb-3 lg:mb-6">
-                        {/* Plan Name */}
                         <h3 className="text-sm lg:text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 break-words">{plan.name}</h3>
-                        {/* Price Display */}
                         <div className="flex flex-col items-center mb-2">
                           <span className="text-sm text-red-500 line-through">₹{plan.mrp}</span>
                           <div className="flex items-center">
@@ -411,15 +399,19 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                               {plan.discountPercentage}% OFF
                             </span>
                           </div>
+                          {/* ✅ NEW: Show additional Diwali discount preview */}
+                          {isDiwaliEligiblePlan(plan.id) && (
+                            <div className="mt-2 bg-orange-100 text-orange-800 px-3 py-1 rounded-lg text-xs font-bold">
+                              With DIWALI: ₹{Math.floor(plan.price * 0.1)} only! 🎉
+                            </div>
+                          )}
                         </div>
                         <p className="text-gray-600 dark:text-gray-300 text-sm">One-time purchase</p>
                       </div>
-                      {/* Resume Credits - Adjusted mb */}
-                      <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg lg:rounded-2xl p-2 lg:p-4 text-center mb-4"> {/* Adjusted mb */}
+                      <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg lg:rounded-2xl p-2 lg:p-4 text-center mb-4">
                         <div className="text-lg lg:text-2xl font-bold text-indigo-600">{plan.optimizations}</div>
                         <div className="text-xs lg:text-sm text-gray-600">Resume Credits</div>
                       </div>
-                      {/* MODIFIED LINE BELOW */}
                       <ul className="space-y-1 lg:space-y-3 mb-3 lg:mb-6 max-h-32 lg:max-h-none overflow-y-auto lg:overflow-visible">
                         {(plan.features || []).map((feature: string, fi: number) => (
                           <li key={fi} className="flex items-start">
@@ -429,8 +421,8 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                                   <Check className="w-4 h-4 lg:w-5 h-5 text-white" />
                                 </div>
                               ) : (
-                                <div className="bg-gray-400 p-0.5 rounded-full"> {/* Changed to gray for excluded checkmark */}
-                                  <Check className="w-4 h-4 lg:w-5 h-5 text-white" /> {/* Still a checkmark */}
+                                <div className="bg-gray-400 p-0.5 rounded-full">
+                                  <Check className="w-4 h-4 lg:w-5 h-5 text-white" />
                                 </div>
                               )}
                             </div>
@@ -441,7 +433,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                       <button
                         onClick={() => {
                           setSelectedPlan(plan.id);
-                          setCurrentStep(1); // Move to next step on Buy Now click
+                          setCurrentStep(1);
                         }}
                         className={`w-full py-2 lg:py-3 px-2 lg:px-4 rounded-lg lg:rounded-xl font-semibold transition-all duration-300 text-sm lg:text-base min-h-[44px] mt-2 ${
                           selectedPlan === plan.id
@@ -467,7 +459,6 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
 
           {currentStep === 1 && (
             <>
-              {/* Back Button for Step 1 */}
               <div className="mb-4">
                 <button
                   onClick={() => setCurrentStep(0)}
@@ -529,10 +520,24 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                   <Tag className="w-5 h-5 mr-2 text-orange-600 dark:text-orange-400" />
                   Apply Coupon Code
                 </h2>
+                {/* ✅ NEW: Diwali Coupon Highlight */}
+                {isDiwaliEligiblePlan(selectedPlan || '') && !appliedCoupon && (
+                  <div className="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-300 rounded-xl p-4 mb-4 dark:from-orange-900/20 dark:to-red-900/20">
+                    <div className="flex items-center space-x-2">
+                      <Gift className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                      <div>
+                        <p className="text-orange-800 dark:text-orange-300 font-bold text-lg">🪔 Diwali Special!</p>
+                        <p className="text-orange-700 dark:text-orange-400 text-sm">
+                          Use code <span className="font-bold bg-orange-600 text-white px-2 py-0.5 rounded">DIWALI</span> to get 90% OFF!
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div className="flex space-x-2">
                   <input
                     type="text"
-                    placeholder="Enter coupon code"
+                    placeholder="Enter coupon code (e.g., DIWALI)"
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value)}
                     className="input-base flex-1"
@@ -561,11 +566,43 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                     {couponError}
                   </p>
                 )}
+                {/* ✅ UPDATED: Enhanced success message for coupons */}
                 {appliedCoupon && (
-                  <p className="text-green-600 text-sm mt-2 flex items-center">
-                    <CheckCircle className="w-4 h-4 mr-1" />
-                    Coupon "{appliedCoupon.code}" applied! You saved ₹{(appliedCoupon.discount / 100).toFixed(2)}.
-                  </p>
+                  <div className={`${
+                    appliedCoupon.code.toLowerCase() === 'diwali' 
+                      ? 'bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-500' 
+                      : 'bg-green-50 border-2 border-green-500'
+                  } rounded-xl p-4 mt-2 dark:from-orange-900/20 dark:to-red-900/20`}>
+                    <p className={`${
+                      appliedCoupon.code.toLowerCase() === 'diwali'
+                        ? 'text-orange-700 dark:text-orange-300'
+                        : 'text-green-700 dark:text-green-300'
+                    } font-semibold flex items-center text-lg`}>
+                      <CheckCircle className="w-5 h-5 mr-2" />
+                      {appliedCoupon.code.toUpperCase() === 'DIWALI' && '🪔 '}
+                      Coupon "{appliedCoupon.code.toUpperCase()}" applied successfully!
+                    </p>
+                    <div className="mt-2 flex items-center justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">You saved:</span>
+                      <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        ₹{(appliedCoupon.discount / 100).toFixed(2)}
+                      </span>
+                    </div>
+                    {appliedCoupon.code.toUpperCase() === 'DIWALI' && (
+                      <div className="mt-3 bg-white/50 rounded-lg p-3 dark:bg-white/10">
+                        <p className="text-orange-600 dark:text-orange-400 font-bold flex items-center">
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Amazing! You just saved 90% with our Diwali offer! 🎉
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Original Price: ₹{((appliedCoupon.finalAmount + appliedCoupon.discount) / 100).toFixed(2)}
+                        </p>
+                        <p className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                          Final Price: ₹{(appliedCoupon.finalAmount / 100).toFixed(2)} (90% OFF!)
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -614,11 +651,18 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                     <div className="flex justify-between">
                       <span>Add-ons:</span>
                       <span>₹{(addOnsTotal / 100).toFixed(2)}</span>
-                  </div>
+                    </div>
                   )}
                   {appliedCoupon && (
-                    <div className="flex justify-between text-green-600 dark:text-green-400">
-                      <span>Coupon Discount:</span>
+                    <div className={`flex justify-between ${
+                      appliedCoupon.code.toLowerCase() === 'diwali' 
+                        ? 'text-orange-600 dark:text-orange-400 font-bold' 
+                        : 'text-green-600 dark:text-green-400'
+                    }`}>
+                      <span>
+                        {appliedCoupon.code.toUpperCase() === 'DIWALI' && '🪔 '}
+                        Coupon Discount:
+                      </span>
                       <span>- ₹{(appliedCoupon.discount / 100).toFixed(2)}</span>
                     </div>
                   )}
@@ -630,8 +674,18 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                   )}
                   <div className="flex justify-between font-bold text-lg text-gray-900 dark:text-gray-100 border-t border-gray-300 pt-2">
                     <span>Grand Total:</span>
-                    <span>₹{(grandTotal / 100).toFixed(2)}</span>
+                    <span className={appliedCoupon?.code.toLowerCase() === 'diwali' ? 'text-orange-600 dark:text-orange-400' : ''}>
+                      ₹{(grandTotal / 100).toFixed(2)}
+                    </span>
                   </div>
+                  {/* ✅ NEW: Show savings summary for DIWALI */}
+                  {appliedCoupon?.code.toLowerCase() === 'diwali' && (
+                    <div className="bg-orange-100 dark:bg-orange-900/30 rounded-lg p-3 mt-3">
+                      <p className="text-sm text-orange-800 dark:text-orange-300 text-center font-semibold">
+                        🎉 You're saving ₹{(appliedCoupon.discount / 100).toFixed(2)} with Diwali offer! 🎉
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -640,7 +694,11 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                 <button
                   onClick={handlePayment}
                   disabled={isProcessing}
-                  className="w-full btn-primary py-3 sm:py-4 flex items-center justify-center text-lg sm:text-xl font-semibold rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300"
+                  className={`w-full py-3 sm:py-4 flex items-center justify-center text-lg sm:text-xl font-semibold rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 ${
+                    appliedCoupon?.code.toLowerCase() === 'diwali'
+                      ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white'
+                      : 'btn-primary'
+                  }`}
                 >
                   {isProcessing ? (
                     <span className="flex items-center">
@@ -648,6 +706,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                     </span>
                   ) : (
                     <span className="flex items-center">
+                      {appliedCoupon?.code.toLowerCase() === 'diwali' && '🪔 '}
                       Proceed to Checkout <ArrowRight className="w-5 h-5 ml-2" />
                     </span>
                   )}
@@ -660,4 +719,3 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
     </div>
   );
 };
-
