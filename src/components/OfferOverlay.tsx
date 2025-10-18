@@ -5,6 +5,7 @@ import { X, Sparkles, ArrowRight } from 'lucide-react';
 interface OfferOverlayProps {
   isOpen: boolean;
   onClose: () => void;
+  /** Pass your onShowSubscriptionPlansDirectly here */
   onAction?: () => void;
 }
 
@@ -15,11 +16,16 @@ export const OfferOverlay: React.FC<OfferOverlayProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const handleActionClick = () => {
-    if (onAction) {
-      onAction();
+  const viewPlans = () => {
+    onAction?.(); // open "All Plans & Add-ons"
+    onClose();    // then close the overlay
+  };
+
+  const onKeyActivate: React.KeyboardEventHandler<HTMLDivElement> = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      viewPlans();
     }
-    onClose();
   };
 
   return (
@@ -29,17 +35,25 @@ export const OfferOverlay: React.FC<OfferOverlayProps> = ({
         <button
           onClick={onClose}
           className="absolute top-2 right-2 z-10 p-2 rounded-full bg-gray-800/50 text-gray-100 hover:bg-gray-700 hover:text-white transition-colors"
+          aria-label="Close"
         >
           <X className="w-5 h-5" />
         </button>
 
-        {/* Content Wrapper with Padding */}
+        {/* Content */}
         <div className="p-8">
-          {/* Thumbnail Image */}
-          <div className="mb-6">
+          {/* Clickable Thumbnail (also opens All Plans) */}
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={viewPlans}
+            onKeyDown={onKeyActivate}
+            className="mb-6 cursor-pointer"
+            title="View All Plans & Add-ons"
+          >
             <img
-              src="https://res.cloudinary.com/dvue2zenh/image/upload/v1758805010/fgpap0m2tmjox3mshgzx.png"
-              alt="Welcome Offer"
+              src="https://res.cloudinary.com/dvue2zenh/image/upload/v1760781622/bqr48g8czgaqubk2kyf8.png"
+              alt="Diwali Offer - View All Plans"
               className="w-full h-40 object-cover rounded-2xl shadow-md mx-auto"
             />
           </div>
@@ -54,13 +68,13 @@ export const OfferOverlay: React.FC<OfferOverlayProps> = ({
             Get a free ATS-friendly resume build and unlock powerful features like our all-in-one Outreach Message Generator for LinkedIn and cold emails. Start your job search strong!
           </p>
 
-          {/* Call to Action */}
+          {/* CTA — goes straight to All Plans */}
           <button
-            onClick={handleActionClick}
+            onClick={viewPlans}
             className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
           >
             <Sparkles className="w-5 h-5" />
-            <span>Start Your Free ATS Resume</span>
+            <span>View All Plans & Add-ons</span>
             <ArrowRight className="w-5 h-5" />
           </button>
         </div>
