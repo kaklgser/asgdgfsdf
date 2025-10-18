@@ -247,7 +247,7 @@ function App() {
 
 const handleDiwaliCTAClick = useCallback(() => {
   handleShowSubscriptionPlansDirectly();
-  setShowDiwaliBanner(false);
+  
 }, [handleShowSubscriptionPlansDirectly]);
 
 
