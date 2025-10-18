@@ -245,10 +245,11 @@ function App() {
     setInitialExpandAddons(false);
   }, []);
 
-  const handleDiwaliCTAClick = useCallback(() => {
-    handleShowPlanSelection(undefined, false);
-    setShowDiwaliBanner(false);
-  }, [handleShowPlanSelection]);
+const handleDiwaliCTAClick = useCallback(() => {
+  handleShowSubscriptionPlansDirectly();
+  setShowDiwaliBanner(false);
+}, [handleShowSubscriptionPlansDirectly]);
+
 
   const handlePageChange = useCallback(
     (path: string) => {
