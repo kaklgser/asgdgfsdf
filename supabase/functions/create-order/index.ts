@@ -339,11 +339,14 @@ serve(async (req) => {
         finalAmount = originalPrice - discountAmount;
         appliedCoupon = 'vnk50';
       }
-      else if (normalizedCoupon === 'diwali' && planId === 'achiever_plan') {
-  discountAmount = Math.floor(originalPrice * 0.9); // 90% off on current price
-  finalAmount = originalPrice - discountAmount;    // ₹3200 * 0.1 = ₹320
-  appliedCoupon = 'diwali';
-}
+      // ✅ UPDATED: DIWALI coupon - 90% off on ALL plans (one-time per user)
+      else if (normalizedCoupon === 'diwali') {
+        // The per-user check above already ensures this user hasn't used DIWALI before
+        discountAmount = Math.floor(originalPrice * 0.9); // 90% off on current price
+        finalAmount = originalPrice - discountAmount;
+        appliedCoupon = 'diwali';
+        console.log(`[${new Date().toISOString()}] - DIWALI coupon applied to plan ${planId}. Original: ${originalPrice}, Discount: ${discountAmount}, Final: ${finalAmount}`);
+      }
       else {
         // If coupon is not recognized or not applicable to the plan, do not apply discount
         // and return an error message.
@@ -483,4 +486,3 @@ serve(async (req) => {
     );
   }
 });
-
