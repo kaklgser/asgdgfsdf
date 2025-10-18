@@ -35,6 +35,7 @@ import { AdminJobsPage } from './components/admin/AdminJobsPage';
 import { JobEditPage } from './components/admin/JobEditPage';
 import { AdminUsersPage } from './components/admin/AdminUsersPage';
 import { PortfolioBuilderPage } from './components/pages/PortfolioBuilderPage';
+import { DiwaliOfferBanner } from './components/DiwaliOfferBanner';
 
 function App() {
   const { isAuthenticated, user, markProfilePromptSeen, isLoading } = useAuth();
