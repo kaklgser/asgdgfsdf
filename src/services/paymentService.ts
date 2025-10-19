@@ -99,6 +99,7 @@ class PaymentService {
         '100 Resume Optimizations',
         '100 Score Checks',
         'Priority Support',
+        '3 Months Linkedin premium free '
       ],
       popular: true,
       durationInHours: 8760, // 1 year
