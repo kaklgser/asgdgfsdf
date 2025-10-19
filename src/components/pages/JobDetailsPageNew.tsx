@@ -23,6 +23,7 @@ import {
   FileText,
   ExternalLink,
   Sparkles,
+  Share2,
 } from 'lucide-react';
 import { jobsService } from '../../services/jobsService';
 import { JobListing } from '../../types/jobs';
@@ -42,6 +43,7 @@ export const JobDetailsPageNew: React.FC<JobDetailsPageProps> = ({ onShowAuth })
   const [loading, setLoading] = useState(true);
   const [showApplicationModal, setShowApplicationModal] = useState(false);
   const [copiedReferralCode, setCopiedReferralCode] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const eligibleYearTags = useMemo(() => {
     if (!job?.eligible_years) return [];
 
@@ -84,6 +86,7 @@ export const JobDetailsPageNew: React.FC<JobDetailsPageProps> = ({ onShowAuth })
   }, [jobId, navigate]);
 
   const handleApplyClick = () => {
+    // Always open the method modal (mobile and desktop)
     if (!isAuthenticated) {
       onShowAuth(() => setShowApplicationModal(true));
     } else {
@@ -107,9 +110,25 @@ export const JobDetailsPageNew: React.FC<JobDetailsPageProps> = ({ onShowAuth })
   };
 
   const handleAIOptimizedApply = () => {
+    if (!job) return;
     setShowApplicationModal(false);
-    // Navigate to AI optimization flow
-    navigate(`/jobs/${jobId}/apply`);
+    const fullJobDescription = [
+      job.full_description || job.description,
+      job.short_description ? `\n\nKey Points: ${job.short_description}` : '',
+      job.qualification ? `\n\nQualifications: ${job.qualification}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    navigate('/optimizer', {
+      state: {
+        jobId: job.id,
+        jobDescription: fullJobDescription,
+        roleTitle: job.role_title,
+        companyName: job.company_name,
+        fromJobApplication: true,
+      },
+    });
   };
 
   const handleScoreCheck = () => {
@@ -136,6 +155,28 @@ export const JobDetailsPageNew: React.FC<JobDetailsPageProps> = ({ onShowAuth })
     navigator.clipboard.writeText(code);
     setCopiedReferralCode(true);
     setTimeout(() => setCopiedReferralCode(false), 2000);
+  };
+
+  const shareOrCopyLink = async () => {
+    const url = window.location.href;
+    try {
+      if ((navigator as any).share) {
+        await (navigator as any).share({
+          title: (job?.role_title || 'Job') + ' at ' + (job?.company_name || ''),
+          url,
+        });
+        return;
+      }
+    } catch (e) {
+      // fallthrough to copy
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
+    } catch (e) {
+      // no-op
+    }
   };
 
   const formatSalary = (amount: number, type: string) => {
@@ -209,10 +250,54 @@ export const JobDetailsPageNew: React.FC<JobDetailsPageProps> = ({ onShowAuth })
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-dark-50 dark:to-dark-200 transition-colors duration-300">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Back Button */}
+        {/* Breadcrumb + Share */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
+          <nav aria-label="Breadcrumb" className="text-sm text-gray-600 dark:text-gray-400">
+            <ol className="flex flex-wrap items-center gap-1">
+              <li>
+                <button onClick={() => navigate('/jobs')} className="hover:text-blue-600 dark:hover:text-neon-cyan-400 font-medium">
+                  Jobs
+                </button>
+              </li>
+              <li className="mx-1" aria-hidden="true">/</li>
+              <li className="truncate max-w-[12rem] sm:max-w-xs" title={job.company_name}>
+                {job.company_name}
+              </li>
+              <li className="mx-1" aria-hidden="true">/</li>
+              <li className="truncate font-semibold text-gray-800 dark:text-gray-200 max-w-[14rem] sm:max-w-sm" title={job.role_title}>
+                {job.role_title}
+              </li>
+            </ol>
+          </nav>
+          <div className="mt-2 sm:mt-0 flex items-center gap-2">
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(window.location.href);
+                  setCopiedLink(true);
+                  setTimeout(() => setCopiedLink(false), 2000);
+                } catch {}
+              }}
+              className="px-3 py-1.5 rounded-lg border border-gray-200 dark:border-dark-300 bg-white dark:bg-dark-100 text-gray-700 dark:text-gray-300 text-sm font-medium hover:bg-gray-50 dark:hover:bg-dark-200"
+            >
+              {copiedLink ? (
+                <span className="inline-flex items-center gap-1"><Check className="w-4 h-4" />Copied</span>
+              ) : (
+                <span className="inline-flex items-center gap-1"><Copy className="w-4 h-4" />Copy link</span>
+              )}
+            </button>
+            <button
+              onClick={shareOrCopyLink}
+              className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium inline-flex items-center gap-1"
+            >
+              <Share2 className="w-4 h-4" /> Share
+            </button>
+          </div>
+        </div>
+        {/* Back Button (mobile only; breadcrumb replaces it on larger screens) */}
         <button
           onClick={() => navigate('/jobs')}
-          className="mb-6 bg-white dark:bg-dark-100 hover:bg-gray-50 dark:hover:bg-dark-200 text-gray-700 dark:text-gray-300 shadow-md hover:shadow-lg py-3 px-5 rounded-xl inline-flex items-center space-x-2 transition-all duration-200 border border-gray-200 dark:border-dark-300"
+          className="sm:hidden mb-6 bg-white dark:bg-dark-100 hover:bg-gray-50 dark:hover:bg-dark-200 text-gray-700 dark:text-gray-300 shadow-md hover:shadow-lg py-3 px-5 rounded-xl inline-flex items-center space-x-2 transition-all duration-200 border border-gray-200 dark:border-dark-300"
         >
           <ArrowLeft className="w-5 h-5" />
           <span>Back to Jobs</span>
