@@ -243,7 +243,7 @@ export const JobsPage: React.FC<JobsPageProps> = ({
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-dark-50 dark:to-dark-200 transition-colors duration-300">
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-40 dark:bg-dark-50 dark:border-dark-300">
-        <div className="container mx-auto px-4">
+        <div className="w-full max-w-full mx-auto px-0 sm:px-0">
           <div className="flex items-center justify-between h-16 py-3">
             <button
               onClick={() => navigate('/')}
@@ -258,7 +258,7 @@ export const JobsPage: React.FC<JobsPageProps> = ({
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="w-full max-w-full mx-auto px-0 sm:px-0 py-8">
         {/* Hero Section */}
         <div className="text-center mb-12">
           <div className="bg-gradient-to-r from-blue-600 to-purple-600 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg">
@@ -369,7 +369,7 @@ export const JobsPage: React.FC<JobsPageProps> = ({
         {/* Jobs Grid */}
         {!error && (
           <>
-           <div className="container mx-auto px-2 sm:px-4 py-8">
+           <div className="w-full max-w-full mx-auto px-0 sm:px-0 py-8 space-y-4">
               {(showingRecommendations && aiRecommendations.length > 0
                 ? aiRecommendations.map((rec) => ({
                     ...rec.job_data,
