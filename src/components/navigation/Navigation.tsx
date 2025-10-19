@@ -110,11 +110,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onPageChange }) => {
               setShowAIToolsDropdown(!showAIToolsDropdown);
               setShowDashboardDropdown(false);
             }}
-            className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-              showAIToolsDropdown
-                ? "bg-blue-100 text-blue-700 dark:bg-neon-cyan-500/20 dark:text-neon-cyan-300"
-                : "text-gray-700 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:text-neon-cyan-400 dark:hover:bg-dark-200"
-            }`}
+            className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:text-neon-cyan-400 dark:hover:bg-dark-200 transition-all duration-200"
           >
             <Sparkles className="w-4 h-4" />
             <span>AI Tools</span>
@@ -132,7 +128,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onPageChange }) => {
                 >
                   {tool.icon}
                   <span className="font-medium">{tool.label}</span>
-                </Link>
+          _       </Link>
               ))}
             </div>
           )}
@@ -146,11 +142,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onPageChange }) => {
             setShowDashboardDropdown(!showDashboardDropdown);
             setShowAIToolsDropdown(false);
           }}
-          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-            showDashboardDropdown
-              ? "bg-blue-100 text-blue-700 dark:bg-neon-cyan-500/20 dark:text-neon-cyan-300"
-              : "text-gray-700 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:text-neon-cyan-400 dark:hover:bg-dark-200"
-          }`}
+          className="flex items-center space-x-2 px-4 py-2 rounded-lg font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 dark:text-gray-300 dark:hover:text-neon-cyan-400 dark:hover:bg-dark-200 transition-all duration-200"
         >
           <LayoutDashboard className="w-4 h-4" />
           <span>Primo space</span>
@@ -159,13 +151,13 @@ export const Navigation: React.FC<NavigationProps> = ({ onPageChange }) => {
 
         {showDashboardDropdown && (
           <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50 dark:bg-dark-100 dark:border-dark-300">
-t          {dashboardItems.map((item) => (
+            {dashboardItems.map((item) => (
               <Link
                 key={item.id}
                 to={item.id}
                 onClick={() => setShowDashboardDropdown(false)}
                 className="w-full flex items-center space-x-3 px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-dark-200 transition-colors text-gray-700 dark:text-gray-300"
-              >
+t             >
                 {item.icon}
                 <span className="font-medium">{item.label}</span>
               </Link>
@@ -183,7 +175,7 @@ t          {dashboardItems.map((item) => (
           <Shield className="w-4 h-4" />
           <span>Admin Panel</span>
         </Link>
-    T   )}
+      )}
     </nav>
   );
 };
