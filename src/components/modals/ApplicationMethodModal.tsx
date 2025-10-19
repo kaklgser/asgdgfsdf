@@ -52,6 +52,18 @@ export const ApplicationMethodModal: React.FC<ApplicationMethodModalProps> = ({
 }) => {
   const [active, setActive] = useState<OptionKey>('optimize');
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
+
+  useEffect(() => {
+    const update = () => {
+      if (typeof window !== 'undefined') {
+        setIsSmallScreen(window.innerWidth < 768); // Tailwind md breakpoint
+      }
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
 
   const actions: Record<OptionKey, ActionDefinition> = useMemo(
     () => ({
@@ -133,6 +145,7 @@ export const ApplicationMethodModal: React.FC<ApplicationMethodModalProps> = ({
   }, [isOpen]);
 
   const anchorTooltip = (key: OptionKey, target: HTMLElement | null) => {
+    if (isSmallScreen) return; // Disable floating tooltip on small screens
     if (typeof window === 'undefined' || !target) return;
     const rect = target.getBoundingClientRect();
     const tooltipWidth = 280;
@@ -155,7 +168,7 @@ export const ApplicationMethodModal: React.FC<ApplicationMethodModalProps> = ({
       );
       if (targetButton) {
         targetButton.focus({ preventScroll: true });
-        anchorTooltip(targetKey, targetButton);
+        if (!isSmallScreen) anchorTooltip(targetKey, targetButton);
         return;
       }
     }
@@ -228,6 +241,11 @@ export const ApplicationMethodModal: React.FC<ApplicationMethodModalProps> = ({
               </div>
             </div>
             <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">{action.description}</p>
+            {isSmallScreen && key === 'direct' && (
+              <div className="mb-4">
+                {renderTooltipContent('direct')}
+              </div>
+            )}
             <ul className="space-y-2">
               {action.highlights.map((point, index) => (
                 <li key={index} className="flex items-start text-sm leading-relaxed text-gray-700 dark:text-gray-300">
@@ -300,7 +318,7 @@ export const ApplicationMethodModal: React.FC<ApplicationMethodModalProps> = ({
 
   return (
     <>
-      {tooltip && (
+      {!isSmallScreen && tooltip && (
         <div
           className="fixed z-[70] pointer-events-none"
           style={{ top: tooltip.y, left: tooltip.x, transform: 'translateX(-50%)' }}
@@ -350,13 +368,19 @@ export const ApplicationMethodModal: React.FC<ApplicationMethodModalProps> = ({
                       onFocus={(event) => anchorTooltip(key, event.currentTarget)}
                       onBlur={clearTooltip}
                       onClick={(event) => {
+                        // Mobile: select and reveal details inline under this card
+                        if (isSmallScreen) {
+                          setActive(key);
+                          return;
+                        }
+                        // Desktop: select and position tooltip
                         setActive(key);
                         anchorTooltip(key, event.currentTarget);
                       }}
-                      className={`w-full rounded-xl border-2 px-4 py-4 text-left transition-all duration-300 flex items-center gap-3 backdrop-blur-sm bg-white/80 dark:bg-dark-200/80 ${
-                        isActive
-                          ? 'border-transparent shadow-lg shadow-purple-500/20 dark:shadow-purple-500/5 ring-2 ring-offset-2 ring-purple-400 dark:ring-purple-500'
-                          : 'border-gray-200 dark:border-dark-400 hover:border-blue-400 hover:shadow-md'
+                    className={`w-full rounded-xl border-2 px-4 py-4 text-left transition-all duration-300 flex items-center gap-3 backdrop-blur-sm bg-white/80 dark:bg-dark-200/80 ${
+                      isActive
+                        ? 'border-transparent shadow-lg shadow-purple-500/20 dark:shadow-purple-500/5 ring-2 ring-offset-2 ring-purple-400 dark:ring-purple-500'
+                        : 'border-gray-200 dark:border-dark-400 hover:border-blue-400 hover:shadow-md'
                       }`}
                     >
                       {action.icon}
@@ -370,12 +394,18 @@ export const ApplicationMethodModal: React.FC<ApplicationMethodModalProps> = ({
                         <p className="text-xs text-gray-600 dark:text-gray-400">{action.subtitle}</p>
                       </div>
                     </button>
+                    {isSmallScreen && isActive && (
+                      <div className="mt-3">
+                        {renderDetailHero(key)}
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
 
-            {renderDetailHero(active)}
+            {/* Desktop/tablet: show the detail hero below the options */}
+            {!isSmallScreen && renderDetailHero(active)}
 
             <div className="mt-2 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
               <p className="text-sm text-blue-900 dark:text-blue-200">
