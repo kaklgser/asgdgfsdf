@@ -159,7 +159,7 @@ export const Navigation: React.FC<NavigationProps> = ({ onPageChange }) => {
 
         {showDashboardDropdown && (
           <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50 dark:bg-dark-100 dark:border-dark-300">
-t          {dashboardItems.map((item) => (
+      {dashboardItems.map((item) => (
               <Link
                 key={item.id}
                 to={item.id}
