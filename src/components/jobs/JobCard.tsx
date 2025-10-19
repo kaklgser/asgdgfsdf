@@ -20,12 +20,18 @@ interface JobCardProps {
   };
   isAuthenticated: boolean;
   onShowAuth: () => void;
+  onManualApply?: (job: JobListing) => void;
+  onAutoApply?: (...args: any[]) => void;
+  onCompleteProfile?: () => void;
 }
 
 export const JobCard: React.FC<JobCardProps> = ({
   job,
   isAuthenticated,
-  onShowAuth
+  onShowAuth,
+  onManualApply,
+  onAutoApply,
+  onCompleteProfile,
 }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -52,11 +58,8 @@ export const JobCard: React.FC<JobCardProps> = ({
 
   const handleManualApply = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!isAuthenticated) {
-      onShowAuth();
-      return;
-    }
-    navigate(`/jobs/${job.id}/apply`);
+    // Redirect to details page for manual apply (better shareable path)
+    navigate(`/jobs/${job.id}`);
   };
 
   const skillTags = job.skills || [];
@@ -87,15 +90,16 @@ export const JobCard: React.FC<JobCardProps> = ({
           )}
         </div>
       )}
-      <div className="p-3">
-        <div className="flex items-start space-x-4">
+      <div className="p-3 sm:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
           {/* Company Logo */}
-          <div className="flex-shrink-0 w-14 h-14 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-300 flex items-center justify-center p-2">
+          <div className="flex-shrink-0 w-16 h-16 sm:w-16 sm:h-16 bg-white dark:bg-dark-200 rounded-lg border border-gray-200 dark:border-dark-300 flex items-center justify-center p-1 sm:p-2 overflow-hidden">
             {job.company_logo_url ? (
               <img
                 src={job.company_logo_url}
                 alt={`${job.company_name} logo`}
-                className="max-w-full max-h-full object-contain"
+                className="w-full h-full object-contain object-center"
+                loading="lazy"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
                   target.style.display = 'none';
@@ -116,7 +120,7 @@ export const JobCard: React.FC<JobCardProps> = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between mb-2">
               <div className="flex-1 min-w-0 pr-4">
-                <h3 className="text-base font-semibold text-gray-900 dark:text-gray-100 mb-1 truncate">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1 truncate">
                   {job.role_title}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
@@ -157,7 +161,7 @@ export const JobCard: React.FC<JobCardProps> = ({
             </div>
 
             {/* Job Details */}
-            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-400 mb-2">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs text-gray-600 dark:text-gray-400 mb-2">
               <div className="flex items-center space-x-1">
                 <MapPin className="w-3.5 h-3.5" />
                 <span>{job.location_city || job.location_type}</span>
@@ -196,7 +200,7 @@ export const JobCard: React.FC<JobCardProps> = ({
             </div>
 
             {/* Actions Row */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div className="flex items-center space-x-1.5">
                 {job.has_referral && (
                   <span className="px-2 py-0.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded text-[10px] font-semibold flex items-center animate-pulse">
@@ -216,16 +220,17 @@ export const JobCard: React.FC<JobCardProps> = ({
               </div>
 
               {/* New Apply Buttons */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center sm:space-x-2 gap-2 sm:gap-0">
                 <button
                   disabled
-                  className="px-3 py-1.5 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-dark-300 dark:to-dark-200 text-gray-600 dark:text-gray-400 rounded-lg text-xs font-semibold cursor-not-allowed"
+                  className="px-3 py-1 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-dark-300 dark:to-dark-200 text-gray-600 dark:text-gray-400 rounded-lg text-xs font-semibold cursor-not-allowed w-auto"
+                  aria-disabled="true"
                 >
-                  Auto Apply (Coming Soon)
+                  Auto Apply (Soon)
                 </button>
                 <button
                   onClick={handleManualApply}
-                  className="px-4 py-1.5 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-purple-700 shadow-md hover:shadow-lg transition-all duration-200"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-500 dark:to-purple-500 text-white rounded-lg text-sm font-semibold hover:from-blue-700 hover:to-purple-700 shadow-md hover:shadow-lg transition-all duration-200 w-full sm:w-auto"
                 >
                   Manual Apply
                 </button>
