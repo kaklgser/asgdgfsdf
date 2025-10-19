@@ -183,7 +183,7 @@ t          {dashboardItems.map((item) => (
           <Shield className="w-4 h-4" />
           <span>Admin Panel</span>
         </Link>
-    T   )}
+    )}
     </nav>
   );
 };
