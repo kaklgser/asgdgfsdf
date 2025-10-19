@@ -382,6 +382,7 @@ export const UserProfileManagement: React.FC<UserProfileManagementProps> = ({
   const [redeemSuccess, setRedeemSuccess] = useState(false);
   const [showAlert, setShowAlert] = useState(false);
   const [alertContent, setAlertContent] = useState<{ title: string; message: string; type: 'info' | 'success' | 'warning' | 'error' }>({ title: '', message: '', type: 'info' });
+  const [isParsingResume, setIsParsingResume] = useState(false);
 
   const {
     register,
@@ -587,6 +588,8 @@ export const UserProfileManagement: React.FC<UserProfileManagementProps> = ({
       return;
     }
 
+    // Show loader while we parse and fill the form
+    setIsParsingResume(true);
     try {
       console.log('Extracted text for parsing:', result.text);
       const resumeData: ResumeData = await mockPaymentService.parseResumeWithAI(result.text);
@@ -680,6 +683,9 @@ export const UserProfileManagement: React.FC<UserProfileManagementProps> = ({
       console.error('Error parsing resume with AI:', error);
       setAlertContent({ title: 'Parsing Failed', message: error.message || 'Failed to parse resume with AI. Please try again or fill manually.', type: 'error' });
       setShowAlert(true);
+    } finally {
+      // Hide loader once done
+      setIsParsingResume(false);
     }
   };
 
@@ -735,7 +741,15 @@ export const UserProfileManagement: React.FC<UserProfileManagementProps> = ({
         </div>
 
         {/* Content Area */}
-        <div className="p-3 sm:p-6 lg:p-8 overflow-y-auto flex-1">
+        <div className="p-3 sm:p-6 lg:p-8 overflow-y-auto flex-1 relative">
+          {isParsingResume && (
+            <div className="absolute inset-0 z-20 bg-white/70 dark:bg-dark-100/70 backdrop-blur-sm flex items-center justify-center">
+              <div className="flex items-center space-x-3 px-4 py-3 rounded-xl border border-gray-200 shadow-lg bg-white dark:bg-dark-200 dark:border-dark-300">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600 dark:text-neon-cyan-400" />
+                <span className="text-gray-700 dark:text-gray-200 font-medium">Parsing your resume… Please wait</span>
+              </div>
+            </div>
+          )}
           {activeTab === 'profile' && (
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {submitError && (
@@ -1061,9 +1075,15 @@ export const UserProfileManagement: React.FC<UserProfileManagementProps> = ({
 
               {/* Save Button */}
               <div className="flex justify-end pt-6 border-t border-gray-200 dark:border-dark-300">
-                <button disabled={isSubmitting} className="btn-primary flex items-center space-x-2">
-                  {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
-                  <span>{isSubmitting ? 'Saving...' : 'Save Profile'}</span>
+                <button disabled={isSubmitting || isParsingResume} className="btn-primary flex items-center space-x-2">
+                  {isSubmitting ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : isParsingResume ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Save className="w-5 h-5" />
+                  )}
+                  <span>{isSubmitting ? 'Saving...' : isParsingResume ? 'Please wait…' : 'Save Profile'}</span>
                 </button>
               </div>
             </form>
