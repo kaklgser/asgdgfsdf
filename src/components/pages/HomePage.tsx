@@ -181,14 +181,7 @@ export const HomePage: React.FC<HomePageProps> = ({
       requiresAuth: false,
       gradient: 'from-orange-50 to-red-50', // Added gradient
     },
-    {
-      id: 'portfolio-builder',
-      title: 'AI Portfolio Builder',
-      description: 'Create a stunning portfolio website in minutes with AI-powered content generation.',
-      icon: <Globe className="w-6 h-6" />,
-      requiresAuth: true,
-      gradient: 'from-indigo-50 to-violet-50', // Added gradient
-    },
+   
     {
       id: 'linkedin-generator',
       // MODIFIED LINE 100: Changed title
