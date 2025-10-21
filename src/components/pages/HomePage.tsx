@@ -304,75 +304,72 @@ export const HomePage: React.FC<HomePageProps> = ({
           </h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {features.map((feature, index) => {
-            let remainingCount: number | null = null;
-            if (isAuthenticated && userSubscription) {
-              switch (feature.id) {
-                case 'optimizer':
-                  remainingCount = userSubscription.optimizationsTotal - userSubscription.optimizationsUsed;
-                  break;
-                case 'score-checker':
-                  remainingCount = userSubscription.scoreChecksTotal - userSubscription.scoreChecksUsed;
-                  break;
-                case 'guided-builder':
-                  remainingCount = userSubscription.guidedBuildsTotal - userSubscription.guidedBuildsUsed;
-                  break;
-                case 'linkedin-generator':
-  remainingCount = null; // Outreach Message Generator doesn't use credits
-  break;
-case 'mock-interview':
-  remainingCount = null; // Mock Interview doesn't use credits
-  break;
-case 'portfolio-builder':
-  remainingCount = null; // Portfolio builder doesn't use credits
-  break;
-default:
-  remainingCount = null;
+  {features.map((feature, index) => {
+    let remainingCount: number | null = null;
+    if (isAuthenticated && userSubscription) {
+      switch (feature.id) {
+        case 'optimizer':
+          remainingCount = userSubscription.optimizationsTotal - userSubscription.optimizationsUsed;
+          break;
+        case 'score-checker':
+          remainingCount = userSubscription.scoreChecksTotal - userSubscription.scoreChecksUsed;
+          break;
+        case 'guided-builder':
+          remainingCount = null; // Guided builder doesn't use credits
+          break;
+        case 'linkedin-generator':
+          remainingCount = null; // Free - no payment required
+          break;
+        case 'mock-interview':
+          remainingCount = null; // Free - no payment required
+          break;
+        case 'portfolio-builder':
+          remainingCount = null; // Free - no payment required
+          break;
+        default:
+          remainingCount = null;
+      }
+    }
 
-              }
-            }
-
-            return (
-              <motion.button
-                key={feature.id}
-                onClick={() => handleFeatureClick(feature)} // Pass the full feature object
-                className={`relative card-hover p-6 flex flex-col items-start sm:flex-row sm:items-center justify-between transition-all duration-300 bg-gradient-to-br ${feature.gradient} border border-secondary-100 shadow-lg hover:shadow-xl group rounded-2xl dark:from-dark-100 dark:to-dark-200 dark:border-dark-300 dark:hover:shadow-neon-cyan/20 ${feature.requiresAuth && !isAuthenticated ? 'opacity-70 cursor-not-allowed' : ''} ${feature.highlight ? 'ring-2 ring-green-500 ring-offset-4 overflow-visible' : ''}`}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.2 }}
-                transition={{ duration: 0.45, delay: index * 0.05 }}
-                whileHover={{ y: -4, scale: 1.01 }}
-                whileTap={{ scale: 0.99 }}
-              >
-                {feature.highlight && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <span className="inline-flex items-center bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
-                      <Check className="w-3 h-3 mr-1" /> Recommended
-                    </span>
-                  </div>
-                )}
-                <div className="flex items-center space-x-4">
-                  <div className="bg-primary-100 rounded-xl p-3 group-hover:bg-gradient-to-r group-hover:from-neon-cyan-500 group-hover:to-neon-blue-500 group-hover:text-white transition-all duration-300 shadow-sm flex-shrink-0 group-hover:scale-110 dark:bg-dark-200 dark:group-hover:shadow-neon-cyan">
-                    {React.cloneElement(feature.icon, { className: "w-8 h-8" })}
-                  </div>
-                  <div>
-                    <span className="text-lg font-bold text-secondary-900 dark:text-gray-100">{feature.title}</span>
-                    <p className="text-sm text-secondary-700 dark:text-gray-300">{feature.description}</p>
-                 {isAuthenticated && userSubscription && remainingCount !== null && remainingCount > 0 &&
- feature.id !== 'guided-builder' && feature.id !== 'linkedin-generator' && feature.id !== 'portfolio-builder' && feature.id !== 'mock-interview' && (
-  <p className="text-xs font-medium text-green-600 dark:text-neon-cyan-400 mt-1">
-    {remainingCount} remaining
-  </p>
-)}
-
-
-                  </div>
-                </div>
-                <ArrowRight className={`w-6 h-6 text-secondary-400 group-hover:text-neon-cyan-400 group-hover:translate-x-1 transition-transform duration-300 flex-shrink-0 dark:text-gray-500 dark:group-hover:text-neon-cyan-400 ${feature.requiresAuth && !isAuthenticated ? 'opacity-50' : ''}`} />
-              </motion.button>
-            );
-          })}
+    return (
+      <motion.button
+        key={feature.id}
+        onClick={() => handleFeatureClick(feature)}
+        className={`relative card-hover p-6 flex flex-col items-start sm:flex-row sm:items-center justify-between transition-all duration-300 bg-gradient-to-br ${feature.gradient} border border-secondary-100 shadow-lg hover:shadow-xl group rounded-2xl dark:from-dark-100 dark:to-dark-200 dark:border-dark-300 dark:hover:shadow-neon-cyan/20 ${feature.requiresAuth && !isAuthenticated ? 'opacity-70 cursor-not-allowed' : ''} ${feature.highlight ? 'ring-2 ring-green-500 ring-offset-4 overflow-visible' : ''}`}
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, amount: 0.2 }}
+        transition={{ duration: 0.45, delay: index * 0.05 }}
+        whileHover={{ y: -4, scale: 1.01 }}
+        whileTap={{ scale: 0.99 }}
+      >
+        {feature.highlight && (
+          <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+            <span className="inline-flex items-center bg-gradient-to-r from-green-500 to-emerald-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow-lg">
+              <Check className="w-3 h-3 mr-1" /> Recommended
+            </span>
+          </div>
+        )}
+        <div className="flex items-center space-x-4">
+          <div className="bg-primary-100 rounded-xl p-3 group-hover:bg-gradient-to-r group-hover:from-neon-cyan-500 group-hover:to-neon-blue-500 group-hover:text-white transition-all duration-300 shadow-sm flex-shrink-0 group-hover:scale-110 dark:bg-dark-200 dark:group-hover:shadow-neon-cyan">
+            {React.cloneElement(feature.icon, { className: "w-8 h-8" })}
+          </div>
+          <div>
+            <span className="text-lg font-bold text-secondary-900 dark:text-gray-100">{feature.title}</span>
+            <p className="text-sm text-secondary-700 dark:text-gray-300">{feature.description}</p>
+            {isAuthenticated && userSubscription && remainingCount !== null && remainingCount > 0 && (
+              <p className="text-xs font-medium text-green-600 dark:text-neon-cyan-400 mt-1">
+                {remainingCount} remaining
+              </p>
+            )}
+          </div>
         </div>
+        <ArrowRight className={`w-6 h-6 text-secondary-400 group-hover:text-neon-cyan-400 group-hover:translate-x-1 transition-transform duration-300 flex-shrink-0 dark:text-gray-500 dark:group-hover:text-neon-cyan-400 ${feature.requiresAuth && !isAuthenticated ? 'opacity-50' : ''}`} />
+      </motion.button>
+    );
+  })}
+</div>
+
       </div>
 
       {/* Companies Marquee Section (with illustrated background) */}
