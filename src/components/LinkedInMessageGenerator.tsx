@@ -166,80 +166,45 @@ export const LinkedInMessageGenerator: React.FC<LinkedInMessageGeneratorProps> =
     }
   }, [currentStep, formData]); // Dependencies for memoized function
 
-  const handleGenerateMessage = useCallback(async () => { // Memoize
-    if (!isAuthenticated) {
-      onShowAlert(
-        'Authentication Required',
-        'Please sign in to generate LinkedIn messages.',
-        'error',
-        'Sign In',
-        onShowAuth
-      );
-      return;
-    }
+  const handleGenerateMessage = useCallback(async () => {
+  if (!isAuthenticated) {
+    onShowAlert(
+      'Authentication Required',
+      'Please sign in to generate LinkedIn messages.',
+      'error',
+      'Sign In',
+      onShowAuth
+    );
+    return;
+  }
 
-    // Ensure userSubscription is up-to-date before checking credits
-    await refreshUserSubscription();
+  // Validation checks
+  if (!formData.recipientFirstName || !formData.recipientCompany || !formData.recipientJobTitle) {
+    onShowAlert('Missing Recipient Information', 'Please fill in all required recipient details.', 'warning');
+    return;
+  }
+  
+  if (formData.messageType === 'referral' && !formData.referralContext) {
+    onShowAlert('Missing Referral Context', 'Please provide context for the referral.', 'warning');
+    return;
+  }
 
-    const creditsLeft =
-      (userSubscription?.linkedinMessagesTotal || 0) - (userSubscription?.linkedinMessagesUsed || 0);
-
-    if (!userSubscription || creditsLeft <= 0) {
-      const planDetails = paymentService.getPlanById(userSubscription?.planId);
-      const planName = planDetails?.name || 'your current plan';
-      const linkedinMessagesTotal = planDetails?.linkedinMessages || 0;
-
-      setMessageGenerationInterrupted(true); // Set flag: message generation was interrupted
-      onShowAlert(
-        'LinkedIn Message Credits Exhausted',
-        `You have used all your ${linkedinMessagesTotal} LinkedIn Message generations from ${planName}. Please upgrade your plan to continue generating messages.`,
-        'warning',
-        'Upgrade Plan',
-        () => onShowSubscriptionPlans('linkedin-generator')
-      );
-      return;
-    }
-
-    // Final guard (should already be green due to validateCurrentStep)
-    if (!formData.recipientFirstName || !formData.recipientCompany || !formData.recipientJobTitle) {
-      onShowAlert('Missing Recipient Information', 'Please fill in all required recipient details.', 'warning');
-      return;
-    }
-    
-    if (formData.messageType === 'referral' && !formData.referralContext) {
-      onShowAlert('Missing Referral Context', 'Please provide context for the referral.', 'warning');
-      return;
-    }
-
-    setIsGenerating(true);
-    try {
-      const messages = await generateLinkedInMessage(formData);
-      setGeneratedMessages(messages);
-
-      if (userSubscription) {
-        const usageResult = await paymentService.useLinkedInMessage(userSubscription.userId);
-        if (usageResult.success) {
-          await refreshUserSubscription();
-        } else {
-          console.error('Failed to decrement LinkedIn message usage:', usageResult.error);
-          onShowAlert(
-            'Usage Update Failed',
-            'Failed to record LinkedIn message usage. Please contact support.',
-            'error'
-          );
-        }
-      }
-    } catch (error: any) {
-      console.error('Error generating LinkedIn message:', error);
-      onShowAlert(
-        'Generation Failed',
-        `Failed to generate message: ${error?.message || 'Unknown error'}. Please try again.`,
-        'error'
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [isAuthenticated, onShowAuth, userSubscription, onShowSubscriptionPlans, onShowAlert, refreshUserSubscription, formData, validateCurrentStep]); // Dependencies for memoized function
+  setIsGenerating(true);
+  try {
+    const messages = await generateLinkedInMessage(formData);
+    setGeneratedMessages(messages);
+  } catch (error: any) {
+    console.error('Error generating LinkedIn message:', error);
+    onShowAlert(
+      'Generation Failed',
+      `Failed to generate message: ${error?.message || 'Unknown error'}. Please try again.`,
+      'error'
+    );
+  } finally {
+    setIsGenerating(false);
+  }
+}, [isAuthenticated, onShowAuth, onShowAlert, formData]);
+ // Dependencies for memoized function
 
   // Register the handleGenerateMessage function with the App.tsx trigger
   useEffect(() => {
