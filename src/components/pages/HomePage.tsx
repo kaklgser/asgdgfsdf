@@ -112,24 +112,26 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   // Helper function to check if a feature is available based on subscription
   const isFeatureAvailable = (featureId: string) => {
-    if (!isAuthenticated) return false; // Must be authenticated to check subscription
-    if (!userSubscription) return false; // No active subscription
+  // Free features - always available for authenticated users
+  if (featureId === 'linkedin-generator' || featureId === 'mock-interview' || featureId === 'portfolio-builder') {
+    return true;
+  }
 
-    switch (featureId) {
-      case 'optimizer':
-        return userSubscription.optimizationsTotal > userSubscription.optimizationsUsed;
-      case 'score-checker':
-        return userSubscription.scoreChecksTotal > userSubscription.scoreChecksUsed;
-      case 'guided-builder':
-        return userSubscription.guidedBuildsTotal > userSubscription.guidedBuildsUsed;
-      case 'linkedin-generator':
-        return userSubscription.linkedinMessagesTotal > userSubscription.linkedinMessagesUsed;
-      case 'portfolio-builder':
-        return true; // Portfolio builder always available if authenticated
-      default:
-        return false;
-    }
-  };
+  if (!isAuthenticated) return false; // Must be authenticated to check subscription
+  if (!userSubscription) return false; // No active subscription
+
+  switch (featureId) {
+    case 'optimizer':
+      return userSubscription.optimizationsTotal > userSubscription.optimizationsUsed;
+    case 'score-checker':
+      return userSubscription.scoreChecksTotal > userSubscription.scoreChecksUsed;
+    case 'guided-builder':
+      return userSubscription.guidedBuildsTotal > userSubscription.guidedBuildsUsed;
+    default:
+      return false;
+  }
+};
+
 
   const handleFeatureClick = (feature: Feature) => {
     console.log('Feature clicked:', feature.id);
