@@ -739,14 +739,15 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                 {stage === 'listening' && (
                   <div className="space-y-4">
                     {showAutoSubmitInfo && (
-  <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 mb-3">
-    <div className="flex items-start gap-2">
-      <div className="text-blue-400 text-xs flex-1">
-        <strong>Auto-Submit:</strong> Answer will auto-submit after 5 seconds of silence
+  <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4 mb-4">
+    <div className="flex items-start gap-3">
+      <div className="text-blue-300 text-sm flex-1">
+        <strong className="text-blue-200 text-base">📌 Auto-Submit Info:</strong>
+        <p className="mt-1">Your answer will automatically submit after <strong>10 seconds</strong> of silence, but only after you've started speaking.</p>
       </div>
       <button
         onClick={() => setShowAutoSubmitInfo(false)}
-        className="text-blue-400 hover:text-blue-300 text-xs"
+        className="text-blue-400 hover:text-blue-300 text-lg font-bold leading-none"
       >
         ✕
       </button>
