@@ -301,12 +301,17 @@ const [minimumSpeechDuration, setMinimumSpeechDuration] = useState(0);
       }
     }
 
-    if (videoStreamRef.current) {
-      try {
-        await speechActivityDetector.initialize(videoStreamRef.current, {
-          silenceThreshold: 5000,
-          volumeThreshold: -50
-        });
+   if (videoStreamRef.current) {
+  try {
+    await speechActivityDetector.initialize(videoStreamRef.current, {
+      silenceThreshold: 5000,
+      volumeThreshold: -50
+    });
+  } catch (error) {
+    console.error('Error initializing speech activity detector:', error);
+  }
+}
+
 
         speechActivityDetector.start(
   (duration) => {
