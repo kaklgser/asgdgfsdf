@@ -112,11 +112,6 @@ export const HomePage: React.FC<HomePageProps> = ({
 
   // Helper function to check if a feature is available based on subscription
   const isFeatureAvailable = (featureId: string) => {
-  // Free features - always available for authenticated users
-  if (featureId === 'linkedin-generator' || featureId === 'mock-interview' || featureId === 'portfolio-builder') {
-    return true;
-  }
-
   if (!isAuthenticated) return false; // Must be authenticated to check subscription
   if (!userSubscription) return false; // No active subscription
 
@@ -127,10 +122,15 @@ export const HomePage: React.FC<HomePageProps> = ({
       return userSubscription.scoreChecksTotal > userSubscription.scoreChecksUsed;
     case 'guided-builder':
       return userSubscription.guidedBuildsTotal > userSubscription.guidedBuildsUsed;
+    case 'linkedin-generator':
+      return userSubscription.linkedinMessagesTotal > userSubscription.linkedinMessagesUsed;
+    case 'portfolio-builder':
+      return true; // Portfolio builder always available if authenticated
     default:
       return false;
   }
 };
+
 
 
   const handleFeatureClick = (feature: Feature) => {
