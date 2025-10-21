@@ -251,7 +251,6 @@ const handleDiwaliCTAClick = useCallback(() => {
   
 }, [handleShowSubscriptionPlansDirectly]);
 
-
   const handlePageChange = useCallback(
     (path: string) => {
       if (path === 'menu') {
@@ -392,26 +391,28 @@ const handleDiwaliCTAClick = useCallback(() => {
 
   console.log('App.tsx: showPlanSelectionModal state before PlanSelectionModal render:', showPlanSelectionModal);
 
+  // Check if we're in interview mode
+  const isInterviewMode = location.pathname.includes('/mock-interview');
+
   return (
     <div className="min-h-screen pb-safe-bottom safe-area bg-white dark:bg-dark-50 transition-colors duration-300">
-      {/* Diwali Banner */}
-      {showDiwaliBanner && <DiwaliOfferBanner onCTAClick={handleDiwaliCTAClick} />}
+      {/* Diwali Banner - Hide in interview mode */}
+      {showDiwaliBanner && !isInterviewMode && <DiwaliOfferBanner onCTAClick={handleDiwaliCTAClick} />}
 
       {/* Add padding-top to account for the banner */}
-      <div className={showDiwaliBanner ? 'pt-20 sm:pt-24' : ''}>
+      <div className={showDiwaliBanner && !isInterviewMode ? 'pt-20 sm:pt-24' : ''}>
         {showSuccessNotification && (
           <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 p-3 bg-green-500 text-white rounded-lg shadow-lg animate-fade-in-down dark:bg-neon-cyan-500 dark:shadow-neon-cyan">
             {successMessage}
           </div>
         )}
 
-       {/* Hide header when in full-screen interview mode */}
-{!location.pathname.includes('/mock-interview') && (
-  <Header onMobileMenuToggle={handleMobileMenuToggle} showMobileMenu={showMobileMenu} onShowProfile={handleShowProfile}>
-    <Navigation onPageChange={handlePageChange} />
-  </Header>
-)}
-
+        {/* Hide header when in interview mode */}
+        {!isInterviewMode && (
+          <Header onMobileMenuToggle={handleMobileMenuToggle} showMobileMenu={showMobileMenu} onShowProfile={handleShowProfile}>
+            <Navigation onPageChange={handlePageChange} />
+          </Header>
+        )}
 
         <Routes>
           <Route path="/" element={<><HomePage {...commonPageProps} /><FloatingChatbot /></>} />
