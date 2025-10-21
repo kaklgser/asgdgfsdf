@@ -359,10 +359,12 @@ default:
                     <span className="text-lg font-bold text-secondary-900 dark:text-gray-100">{feature.title}</span>
                     <p className="text-sm text-secondary-700 dark:text-gray-300">{feature.description}</p>
                   {isAuthenticated && userSubscription && remainingCount !== null && remainingCount > 0 &&
- feature.id !== 'guided-builder' && feature.id !== 'linkedin-generator' && feature.id !== 'portfolio-builder' && (
+ feature.id !== 'guided-builder' && feature.id !== 'linkedin-generator' && feature.id !== 'portfolio-builder' && feature.id !== 'mock-interview' && (
   <p className="text-xs font-medium text-green-600 dark:text-neon-cyan-400 mt-1">
     {remainingCount} remaining
   </p>
+)}
+
 )}
 
                   </div>
