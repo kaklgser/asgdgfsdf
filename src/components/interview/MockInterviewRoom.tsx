@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Pause, Play, X, Video, Mic, MicOff, Volume2, AlertTriangle, Maximize } from 'lucide-react';
+import { Video, Mic, MicOff, Volume2, AlertTriangle, SkipForward, Loader2 } from 'lucide-react';
 import { InterviewConfig, InterviewQuestion, MockInterviewSession } from '../../types/interview';
 import { interviewService } from '../../services/interviewService';
 import { interviewFeedbackService } from '../../services/interviewFeedbackService';
 import { speechRecognitionService } from '../../services/speechRecognitionService';
 import { textToSpeechService } from '../../services/textToSpeechService';
+import { speechActivityDetector } from '../../services/speechActivityDetector';
 import { useFullScreenMonitor } from '../../hooks/useFullScreenMonitor';
 import { useTabSwitchDetector } from '../../hooks/useTabSwitchDetector';
+import { SimplifiedInterviewHeader } from './SimplifiedInterviewHeader';
+import { supabase } from '../../lib/supabaseClient';
 
 interface MockInterviewRoomProps {
   config: InterviewConfig;
@@ -39,6 +42,11 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
   const [aiCurrentText, setAiCurrentText] = useState('');
   const [showViolationWarning, setShowViolationWarning] = useState(false);
   const [violationMessage, setViolationMessage] = useState('');
+  const [silenceCountdown, setSilenceCountdown] = useState(0);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isSkipping, setIsSkipping] = useState(false);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
+  const [showAutoSubmitInfo, setShowAutoSubmitInfo] = useState(true);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -46,6 +54,8 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const startTimeRef = useRef<number>(0);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const silenceCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const autoSubmitTriggeredRef = useRef<boolean>(false);
 
   const fullScreen = useFullScreenMonitor({
     onFullScreenExit: () => {
@@ -82,6 +92,34 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       cleanup();
     };
   }, []);
+
+  useEffect(() => {
+    if (stage === 'listening' && !isPaused) {
+      silenceCheckIntervalRef.current = setInterval(() => {
+        if (speechActivityDetector.isInitialized()) {
+          const currentSilence = speechActivityDetector.getCurrentSilenceDuration();
+          const countdown = Math.max(0, 5 - currentSilence);
+          setSilenceCountdown(countdown);
+
+          if (countdown === 0 && !autoSubmitTriggeredRef.current) {
+            autoSubmitTriggeredRef.current = true;
+            handleAutoSubmit();
+          }
+        }
+      }, 100);
+    } else {
+      if (silenceCheckIntervalRef.current) {
+        clearInterval(silenceCheckIntervalRef.current);
+        silenceCheckIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (silenceCheckIntervalRef.current) {
+        clearInterval(silenceCheckIntervalRef.current);
+      }
+    };
+  }, [stage, isPaused]);
 
   useEffect(() => {
     if (!isPaused && stage === 'listening') {
@@ -256,10 +294,35 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
         console.error('Failed to start speech recognition:', error);
       }
     }
+
+    if (videoStreamRef.current) {
+      try {
+        await speechActivityDetector.initialize(videoStreamRef.current, {
+          silenceThreshold: 5000,
+          volumeThreshold: -50
+        });
+
+        speechActivityDetector.start(
+          (duration) => {
+            console.log('Silence detected for', duration, 'seconds');
+          },
+          () => {
+            setIsSpeaking(true);
+            setSilenceCountdown(5);
+          }
+        );
+      } catch (error) {
+        console.error('Failed to start silence detection:', error);
+      }
+    }
+
+    autoSubmitTriggeredRef.current = false;
+    setAutoSubmitted(false);
   };
 
-  const stopListening = async () => {
+  const stopListening = async (isAutoSubmit: boolean = false) => {
     const responseDuration = Math.floor((Date.now() - startTimeRef.current) / 1000);
+    const silenceDuration = isAutoSubmit ? speechActivityDetector.getCurrentSilenceDuration() : 0;
 
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       mediaRecorderRef.current.stop();
@@ -270,13 +333,90 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       speechRecognitionService.stopListening();
     }
 
-    setStage('processing');
-    setStatusMessage('Processing your answer...');
+    speechActivityDetector.stop();
 
-    await processAnswer(responseDuration);
+    if (silenceCheckIntervalRef.current) {
+      clearInterval(silenceCheckIntervalRef.current);
+      silenceCheckIntervalRef.current = null;
+    }
+
+    setStage('processing');
+    setStatusMessage(isAutoSubmit ? 'Auto-submitting your answer...' : 'Processing your answer...');
+
+    await processAnswer(responseDuration, isAutoSubmit, silenceDuration);
   };
 
-  const processAnswer = async (responseDuration: number) => {
+  const handleAutoSubmit = async () => {
+    setAutoSubmitted(true);
+    await stopListening(true);
+  };
+
+  const handleSkipQuestion = async () => {
+    if (isSkipping) return;
+
+    setIsSkipping(true);
+    setStatusMessage('Skipping question...');
+
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+    }
+
+    if (speechRecognitionService.isSupported()) {
+      speechRecognitionService.stopListening();
+    }
+
+    speechActivityDetector.stop();
+
+    if (session && currentQuestion) {
+      try {
+        const { data: sessionData } = await supabase
+          .from('mock_interview_sessions')
+          .select('skipped_questions, skip_count')
+          .eq('id', session.id)
+          .maybeSingle();
+
+        const skippedQuestions = sessionData?.skipped_questions || [];
+        const skipCount = (sessionData?.skip_count || 0) + 1;
+
+        await supabase
+          .from('mock_interview_sessions')
+          .update({
+            skipped_questions: [...skippedQuestions, currentQuestion.id],
+            skip_count: skipCount
+          })
+          .eq('id', session.id);
+
+        await interviewService.saveResponse(
+          session.id,
+          currentQuestion.id,
+          currentQuestionIndex + 1,
+          {
+            userAnswerText: '[Question Skipped]',
+            audioTranscript: '[Question Skipped]',
+            aiFeedback: {
+              score: 0,
+              feedback: 'Question was skipped by the user.',
+              strengths: [],
+              improvements: [],
+              tone_confidence_rating: 'N/A'
+            },
+            individualScore: 0,
+            responseDuration: 0
+          }
+        );
+      } catch (error) {
+        console.error('Error saving skipped question:', error);
+      }
+    }
+
+    setTimeout(() => {
+      setIsSkipping(false);
+      moveToNextQuestion();
+    }, 1000);
+  };
+
+  const processAnswer = async (responseDuration: number, isAutoSubmit: boolean = false, silenceDuration: number = 0) => {
     try {
       if (!session || !currentQuestion) return;
 
@@ -291,20 +431,39 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       );
 
       setStatusMessage('Saving your response...');
-      await interviewService.saveResponse(
-        session.id,
-        currentQuestion.id,
-        currentQuestionIndex + 1,
-        {
-          userAnswerText: transcript,
-          audioTranscript: transcript,
-          aiFeedback: feedback,
-          individualScore: feedback.score,
-          toneRating: feedback.tone_confidence_rating,
-          confidenceRating: feedback.score,
-          responseDuration: responseDuration
-        }
-      );
+
+      const responseData: any = {
+        userAnswerText: transcript,
+        audioTranscript: transcript,
+        aiFeedback: feedback,
+        individualScore: feedback.score,
+        toneRating: feedback.tone_confidence_rating,
+        confidenceRating: feedback.score,
+        responseDuration: responseDuration
+      };
+
+      const { data, error } = await supabase
+        .from('interview_responses')
+        .insert({
+          session_id: session.id,
+          question_id: currentQuestion.id,
+          question_order: currentQuestionIndex + 1,
+          user_answer_text: responseData.userAnswerText,
+          audio_transcript: responseData.audioTranscript,
+          ai_feedback_json: responseData.aiFeedback,
+          individual_score: responseData.individualScore,
+          tone_rating: responseData.toneRating,
+          confidence_rating: responseData.confidenceRating,
+          response_duration_seconds: responseData.responseDuration,
+          auto_submitted: isAutoSubmit,
+          silence_duration: silenceDuration
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error saving response:', error);
+      }
 
       setStage('feedback');
       setStatusMessage('Feedback generated');
@@ -427,6 +586,11 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       clearInterval(timerIntervalRef.current);
     }
 
+    if (silenceCheckIntervalRef.current) {
+      clearInterval(silenceCheckIntervalRef.current);
+    }
+
+    speechActivityDetector.cleanup();
     textToSpeechService.stop();
     speechRecognitionService.reset();
   };
@@ -518,72 +682,18 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
         </div>
       )}
 
-      <div className="fixed top-0 left-0 right-0 bg-dark-200 border-b border-dark-300 shadow-xl z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div>
-                <div className="font-semibold text-gray-100">{userName}</div>
-                <div className="text-sm text-gray-400">Mock Interview</div>
-              </div>
-
-              <div className="h-8 w-px bg-dark-300"></div>
-
-              <div className="flex items-center gap-2 text-gray-300">
-                <span className="text-lg font-mono">{formatTime(timeRemaining)}</span>
-              </div>
-
-              <div className="h-8 w-px bg-dark-300"></div>
-
-              <div className="text-gray-300">
-                Question {currentQuestionIndex + 1} / {questions.length}
-              </div>
-
-              {totalViolations > 0 && (
-                <>
-                  <div className="h-8 w-px bg-dark-300"></div>
-                  <div className="flex items-center gap-2 text-red-400">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span className="text-sm">Violations: {totalViolations}</span>
-                  </div>
-                </>
-              )}
-
-              {!fullScreen.isFullScreen && stage !== 'completed' && (
-                <>
-                  <div className="h-8 w-px bg-dark-300"></div>
-                  <button
-                    onClick={fullScreen.requestFullScreen}
-                    className="flex items-center gap-2 text-yellow-400 hover:text-yellow-300 transition-colors"
-                    title="Enter Full-Screen"
-                  >
-                    <Maximize className="w-4 h-4" />
-                    <span className="text-sm">Enter Full-Screen</span>
-                  </button>
-                </>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handlePause}
-                className="p-2 hover:bg-dark-300 rounded-lg transition-colors"
-                title={isPaused ? 'Resume' : 'Pause'}
-              >
-                {isPaused ? <Play className="w-5 h-5 text-gray-300" /> : <Pause className="w-5 h-5 text-gray-300" />}
-              </button>
-
-              <button
-                onClick={handleEndInterview}
-                className="p-2 hover:bg-red-900/20 rounded-lg transition-colors"
-                title="End Interview"
-              >
-                <X className="w-5 h-5 text-red-400" />
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <SimplifiedInterviewHeader
+        userName={userName}
+        timeRemaining={timeRemaining}
+        currentQuestionIndex={currentQuestionIndex}
+        totalQuestions={questions.length}
+        isPaused={isPaused}
+        totalViolations={totalViolations}
+        isFullScreen={fullScreen.isFullScreen}
+        onPause={handlePause}
+        onEnd={handleEndInterview}
+        onEnterFullScreen={fullScreen.requestFullScreen}
+      />
 
       <div className="flex-1 mt-20 pt-8 pb-20">
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-3 gap-6 h-full">
@@ -628,17 +738,76 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
 
                 {stage === 'listening' && (
                   <div className="space-y-4">
+                    {showAutoSubmitInfo && (
+                      <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 mb-3">
+                        <div className="flex items-start gap-2">
+                          <div className="text-blue-400 text-xs flex-1">
+                            <strong>Auto-Submit:</strong> Answer will auto-submit after 5 seconds of silence
+                          </div>
+                          <button
+                            onClick={() => setShowAutoSubmitInfo(false)}
+                            className="text-blue-400 hover:text-blue-300 text-xs"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="bg-dark-300 rounded-lg p-4 min-h-[100px] max-h-[200px] overflow-y-auto">
                       <p className="text-gray-300 text-sm">
                         {currentTranscript || 'Start speaking...'}
                       </p>
                     </div>
-                    <button
-                      onClick={stopListening}
-                      className="w-full btn-primary py-3"
-                    >
-                      Submit Answer
-                    </button>
+
+                    {silenceCountdown < 5 && silenceCountdown > 0 && (
+                      <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-yellow-400 text-sm">Auto-submitting in:</span>
+                          <span className="text-yellow-400 font-mono font-bold text-lg">{silenceCountdown}s</span>
+                        </div>
+                        <div className="mt-2 w-full bg-dark-400 rounded-full h-2 overflow-hidden">
+                          <div
+                            className="bg-yellow-400 h-full transition-all duration-1000"
+                            style={{ width: `${(silenceCountdown / 5) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => stopListening(false)}
+                        className="flex-1 btn-primary py-3"
+                        disabled={autoSubmitted}
+                      >
+                        Submit Answer
+                      </button>
+                      <button
+                        onClick={handleSkipQuestion}
+                        className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
+                        disabled={isSkipping}
+                      >
+                        {isSkipping ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-sm">Skipping...</span>
+                          </>
+                        ) : (
+                          <>
+                            <SkipForward className="w-4 h-4" />
+                            <span className="text-sm">Skip</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {isSpeaking && (
+                      <div className="flex items-center justify-center gap-2 text-green-400 text-xs">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span>Speech detected</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
