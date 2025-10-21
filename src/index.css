@@ -334,3 +334,44 @@ h2 {
 .sparkle {
   animation: sparkle 1.5s ease-in-out infinite;
 }
+
+/* Hide elements when in fullscreen */
+*:fullscreen header,
+*:fullscreen .header-component,
+*:-webkit-full-screen header,
+*:-webkit-full-screen .header-component,
+*:-moz-full-screen header,
+*:-moz-full-screen .header-component,
+*:-ms-fullscreen header,
+*:-ms-fullscreen .header-component {
+  display: none !important;
+}
+
+/* Ensure interview header remains visible */
+*:fullscreen .interview-header,
+*:-webkit-full-screen .interview-header,
+*:-moz-full-screen .interview-header,
+*:-ms-fullscreen .interview-header {
+  display: flex !important;
+}
+
+/* Full-screen mode fixes */
+:-webkit-full-screen {
+  width: 100vw;
+  height: 100vh;
+}
+
+:-moz-full-screen {
+  width: 100vw;
+  height: 100vh;
+}
+
+:-ms-fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+
+:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
