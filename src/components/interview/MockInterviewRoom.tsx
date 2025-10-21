@@ -303,22 +303,23 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
         });
 
         speechActivityDetector.start(
-          (duration) => {
-            console.log('Silence detected for', duration, 'seconds');
-          },
-          () => {
-            setIsSpeaking(true);
-            setSilenceCountdown(5);
-          }
-        );
-      } catch (error) {
-        console.error('Failed to start silence detection:', error);
-      }
+  (duration) => {
+    console.log('Silence detected for', duration, 'seconds');
+  },
+  () => {
+    setIsSpeaking(true);
+    setSilenceCountdown(10); // Changed from 5 to 10
+    if (!hasStartedSpeaking) {
+      setHasStartedSpeaking(true);
     }
+    setMinimumSpeechDuration(prev => prev + 0.1);
+  }
+);
 
-    autoSubmitTriggeredRef.current = false;
-    setAutoSubmitted(false);
-  };
+autoSubmitTriggeredRef.current = false;
+setAutoSubmitted(false);
+setHasStartedSpeaking(false); // Reset for each question
+setMinimumSpeechDuration(0);
 
   const stopListening = async (isAutoSubmit: boolean = false) => {
     const responseDuration = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -763,7 +764,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                       </p>
                     </div>
 
-                    {silenceCountdown < 5 && silenceCountdown > 0 && (
+                    {silenceCountdown < 10 && silenceCountdown > 0 && hasStartedSpeaking && (
                       <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
                         <div className="flex items-center justify-between">
                           <span className="text-yellow-400 text-sm">Auto-submitting in:</span>
@@ -772,7 +773,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                         <div className="mt-2 w-full bg-dark-400 rounded-full h-2 overflow-hidden">
                           <div
                             className="bg-yellow-400 h-full transition-all duration-1000"
-                            style={{ width: `${(silenceCountdown / 5) * 100}%` }}
+                            style={{ width: `${(silenceCountdown / 10) * 100}%` }}
                           ></div>
                         </div>
                       </div>
