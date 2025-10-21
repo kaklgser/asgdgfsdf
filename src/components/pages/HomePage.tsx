@@ -318,13 +318,17 @@ export const HomePage: React.FC<HomePageProps> = ({
                   remainingCount = userSubscription.guidedBuildsTotal - userSubscription.guidedBuildsUsed;
                   break;
                 case 'linkedin-generator':
-                  remainingCount = userSubscription.linkedinMessagesTotal - userSubscription.linkedinMessagesUsed;
-                  break;
-                case 'portfolio-builder':
-                  remainingCount = null; // Portfolio builder doesn't use credits
-                  break;
-                default:
-                  remainingCount = null;
+  remainingCount = null; // Outreach Message Generator doesn't use credits
+  break;
+case 'mock-interview':
+  remainingCount = null; // Mock Interview doesn't use credits
+  break;
+case 'portfolio-builder':
+  remainingCount = null; // Portfolio builder doesn't use credits
+  break;
+default:
+  remainingCount = null;
+
               }
             }
 
