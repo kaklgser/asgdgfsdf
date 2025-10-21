@@ -45,8 +45,12 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
   const [silenceCountdown, setSilenceCountdown] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
+  
   const [autoSubmitted, setAutoSubmitted] = useState(false);
   const [showAutoSubmitInfo, setShowAutoSubmitInfo] = useState(true);
+  const [hasStartedSpeaking, setHasStartedSpeaking] = useState(false);
+const [minimumSpeechDuration, setMinimumSpeechDuration] = useState(0);
+
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
