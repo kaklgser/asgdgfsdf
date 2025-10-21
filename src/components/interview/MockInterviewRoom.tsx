@@ -722,9 +722,10 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                 <div className="text-sm text-blue-400 mb-4">
                   {currentQuestion.category} • {currentQuestion.difficulty}
                 </div>
-                <h3 className="text-2xl font-semibold text-gray-100 mb-6">
-                  {currentQuestion.question_text}
-                </h3>
+               <h3 className="text-3xl font-bold text-gray-100 mb-6 leading-relaxed">
+  {currentQuestion.question_text}
+</h3>
+
 
                 {aiSpeaking && aiCurrentText && (
                   <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4 mb-4">
