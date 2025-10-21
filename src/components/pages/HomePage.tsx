@@ -134,28 +134,29 @@ export const HomePage: React.FC<HomePageProps> = ({
 
 
   const handleFeatureClick = (feature: Feature) => {
-    console.log('Feature clicked:', feature.id);
-    console.log('Feature requiresAuth:', feature.requiresAuth);
-    console.log('User isAuthenticated:', isAuthenticated);
+  console.log('Feature clicked:', feature.id);
+  console.log('Feature requiresAuth:', feature.requiresAuth);
+  console.log('User isAuthenticated:', isAuthenticated);
 
-    // If not authenticated, prompt to sign in first
-    if (!isAuthenticated && feature.requiresAuth) {
-      onShowAuth();
-      return;
-    }
+  // If not authenticated, prompt to sign in first
+  if (!isAuthenticated && feature.requiresAuth) {
+    onShowAuth();
+    return;
+  }
 
-    // If authenticated, check if credits are available. If not, show plan selection.
-    if (isAuthenticated && feature.requiresAuth && !isFeatureAvailable(feature.id)) {
-      onShowSubscriptionPlans(feature.id); // Pass feature ID for context-specific modal
-      return;
-    }
+  // If authenticated, check if credits are available. If not, show plan selection.
+  if (isAuthenticated && feature.requiresAuth && !isFeatureAvailable(feature.id)) {
+    onShowSubscriptionPlans(feature.id); // Pass feature ID for context-specific modal
+    return;
+  }
 
-    // If authenticated or feature does not require auth, navigate to the page.
-    if (isAuthenticated || !feature.requiresAuth) { // Allow non-auth features to navigate
-      console.log('User is authenticated or feature does not require auth. Navigating to page.');
-      navigate(feature.id); // Use navigate
-    }
-  };
+  // If authenticated or feature does not require auth, navigate to the page.
+  if (isAuthenticated || !feature.requiresAuth) { // Allow non-auth features to navigate
+    console.log('User is authenticated or feature does not require auth. Navigating to page.');
+    navigate(feature.id); // Use navigate
+  }
+};
+
 
   const features: Feature[] = [
     {
