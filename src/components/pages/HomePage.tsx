@@ -191,8 +191,17 @@ export const HomePage: React.FC<HomePageProps> = ({
       icon: <MessageCircle className="w-6 h-6" />,
       requiresAuth: true,
       gradient: 'from-yellow-50 to-amber-50', // Added gradient
+    },
+    {
+      id: 'mock-interview',
+      title: 'AI Mock Interview (Beta)',
+      description: 'Practice interviews with AI-powered feedback in a realistic meet-style environment.',
+      icon: <Sparkles className="w-6 h-6" />,
+      requiresAuth: true,
+      highlight: true,
+      gradient: 'from-indigo-50 to-purple-50',
     }
-    
+
   ];
 
   const stats = [
