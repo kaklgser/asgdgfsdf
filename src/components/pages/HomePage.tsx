@@ -158,6 +158,7 @@ export const HomePage: React.FC<HomePageProps> = ({
 };
 
 
+
   const features: Feature[] = [
     {
       id: 'optimizer',
