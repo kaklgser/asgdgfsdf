@@ -94,20 +94,22 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
   }, []);
 
   useEffect(() => {
-    if (stage === 'listening' && !isPaused) {
-      silenceCheckIntervalRef.current = setInterval(() => {
-        if (speechActivityDetector.isInitialized()) {
-          const currentSilence = speechActivityDetector.getCurrentSilenceDuration();
-          const countdown = Math.max(0, 5 - currentSilence);
-          setSilenceCountdown(countdown);
+  if (stage === 'listening' && !isPaused) {
+    silenceCheckIntervalRef.current = setInterval(() => {
+      if (speechActivityDetector.isInitialized()) {
+        const currentSilence = speechActivityDetector.getCurrentSilenceDuration();
+        const countdown = Math.max(0, 10 - currentSilence); // Changed from 5 to 10 seconds
+        setSilenceCountdown(countdown);
 
-          if (countdown === 0 && !autoSubmitTriggeredRef.current) {
-            autoSubmitTriggeredRef.current = true;
-            handleAutoSubmit();
-          }
+        // Only auto-submit if user has spoken for at least 3 seconds
+        if (countdown === 0 && !autoSubmitTriggeredRef.current && hasStartedSpeaking && minimumSpeechDuration >= 3) {
+          autoSubmitTriggeredRef.current = true;
+          handleAutoSubmit();
         }
-      }, 100);
-    } else {
+      }
+    }, 100);
+  }
+ else {
       if (silenceCheckIntervalRef.current) {
         clearInterval(silenceCheckIntervalRef.current);
         silenceCheckIntervalRef.current = null;
