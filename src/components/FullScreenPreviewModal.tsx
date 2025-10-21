@@ -38,10 +38,11 @@ export const FullScreenPreviewModal: React.FC<FullScreenPreviewModalProps> = ({
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
-      onClick={handleBackdropClick}
-    >
+   <div
+  className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] p-4 backdrop-blur-sm"
+  onClick={handleBackdropClick}
+>
+
       <div className="bg-white dark:bg-dark-100 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between bg-gray-50 dark:bg-dark-200 px-6 py-4 border-b border-gray-200 dark:border-dark-300">
