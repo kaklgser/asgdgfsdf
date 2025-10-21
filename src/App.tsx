@@ -405,9 +405,13 @@ const handleDiwaliCTAClick = useCallback(() => {
           </div>
         )}
 
-        <Header onMobileMenuToggle={handleMobileMenuToggle} showMobileMenu={showMobileMenu} onShowProfile={handleShowProfile}>
-          <Navigation onPageChange={handlePageChange} />
-        </Header>
+       {/* Hide header when in full-screen interview mode */}
+{!location.pathname.includes('/mock-interview') && (
+  <Header onMobileMenuToggle={handleMobileMenuToggle} showMobileMenu={showMobileMenu} onShowProfile={handleShowProfile}>
+    <Navigation onPageChange={handlePageChange} />
+  </Header>
+)}
+
 
         <Routes>
           <Route path="/" element={<><HomePage {...commonPageProps} /><FloatingChatbot /></>} />
