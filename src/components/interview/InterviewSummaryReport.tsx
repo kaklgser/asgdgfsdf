@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, TrendingUp, Lightbulb, RotateCcw, Home, Download, Share2 } from 'lucide-react';
+import { Trophy, TrendingUp, Lightbulb, RotateCcw, Home, Download, Share2, Shield, AlertTriangle } from 'lucide-react';
 import { interviewService } from '../../services/interviewService';
 import { interviewFeedbackService } from '../../services/interviewFeedbackService';
 import { InterviewSessionWithQuestions, AIFeedback } from '../../types/interview';
@@ -194,6 +194,92 @@ export const InterviewSummaryReport: React.FC<InterviewSummaryReportProps> = ({
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {(sessionData.security_score !== undefined ||
+              sessionData.tab_switches_count !== undefined ||
+              sessionData.fullscreen_exits_count !== undefined) && (
+              <div className={`rounded-xl p-6 mb-8 border ${
+                (sessionData.security_score || 100) >= 80
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                  : (sessionData.security_score || 100) >= 60
+                  ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800'
+                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+              }`}>
+                <div className="flex items-center gap-3 mb-4">
+                  {(sessionData.security_score || 100) >= 80 ? (
+                    <Shield className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  ) : (
+                    <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+                  )}
+                  <h3 className="text-xl font-bold text-secondary-900 dark:text-gray-100">
+                    Interview Integrity Report
+                  </h3>
+                </div>
+
+                <div className="grid md:grid-cols-4 gap-4 mb-4">
+                  <div className="bg-white dark:bg-dark-200 rounded-lg p-4 text-center">
+                    <div className={`text-3xl font-bold mb-1 ${
+                      (sessionData.security_score || 100) >= 80
+                        ? 'text-green-600 dark:text-green-400'
+                        : (sessionData.security_score || 100) >= 60
+                        ? 'text-yellow-600 dark:text-yellow-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {sessionData.security_score || 100}
+                    </div>
+                    <div className="text-xs text-secondary-600 dark:text-gray-400">Security Score</div>
+                  </div>
+
+                  <div className="bg-white dark:bg-dark-200 rounded-lg p-4 text-center">
+                    <div className="text-3xl font-bold mb-1 text-secondary-900 dark:text-gray-100">
+                      {sessionData.tab_switches_count || 0}
+                    </div>
+                    <div className="text-xs text-secondary-600 dark:text-gray-400">Tab Switches</div>
+                  </div>
+
+                  <div className="bg-white dark:bg-dark-200 rounded-lg p-4 text-center">
+                    <div className="text-3xl font-bold mb-1 text-secondary-900 dark:text-gray-100">
+                      {sessionData.fullscreen_exits_count || 0}
+                    </div>
+                    <div className="text-xs text-secondary-600 dark:text-gray-400">Full-Screen Exits</div>
+                  </div>
+
+                  <div className="bg-white dark:bg-dark-200 rounded-lg p-4 text-center">
+                    <div className="text-3xl font-bold mb-1 text-secondary-900 dark:text-gray-100">
+                      {sessionData.total_violation_time || 0}s
+                    </div>
+                    <div className="text-xs text-secondary-600 dark:text-gray-400">Time Away</div>
+                  </div>
+                </div>
+
+                <div className={`rounded-lg p-4 ${
+                  (sessionData.security_score || 100) >= 80
+                    ? 'bg-green-100 dark:bg-green-900/30'
+                    : (sessionData.security_score || 100) >= 60
+                    ? 'bg-yellow-100 dark:bg-yellow-900/30'
+                    : 'bg-red-100 dark:bg-red-900/30'
+                }`}>
+                  <p className="text-sm text-secondary-700 dark:text-gray-300">
+                    {(sessionData.security_score || 100) >= 80 ? (
+                      <>
+                        <strong>✓ Excellent!</strong> You maintained excellent focus throughout the interview.
+                        No significant violations were detected.
+                      </>
+                    ) : (sessionData.security_score || 100) >= 60 ? (
+                      <>
+                        <strong>⚠ Good Attempt!</strong> Some minor distractions were detected.
+                        Try to stay more focused in future interviews for better results.
+                      </>
+                    ) : (
+                      <>
+                        <strong>⚠ Attention Required!</strong> Multiple violations were detected during the interview.
+                        This may affect the credibility of your results. Please ensure better focus in future attempts.
+                      </>
+                    )}
+                  </p>
+                </div>
               </div>
             )}
 

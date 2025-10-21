@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Pause, Play, X, FileText, Video, Mic, MicOff } from 'lucide-react';
+import { Pause, Play, X, Video, Mic, MicOff, Volume2, AlertTriangle, Maximize } from 'lucide-react';
 import { InterviewConfig, InterviewQuestion, MockInterviewSession } from '../../types/interview';
 import { interviewService } from '../../services/interviewService';
 import { interviewFeedbackService } from '../../services/interviewFeedbackService';
 import { speechRecognitionService } from '../../services/speechRecognitionService';
+import { textToSpeechService } from '../../services/textToSpeechService';
+import { useFullScreenMonitor } from '../../hooks/useFullScreenMonitor';
+import { useTabSwitchDetector } from '../../hooks/useTabSwitchDetector';
 
 interface MockInterviewRoomProps {
   config: InterviewConfig;
@@ -32,12 +35,44 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [isMicrophoneEnabled, setIsMicrophoneEnabled] = useState(false);
   const [statusMessage, setStatusMessage] = useState('Initializing interview...');
+  const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [aiCurrentText, setAiCurrentText] = useState('');
+  const [showViolationWarning, setShowViolationWarning] = useState(false);
+  const [violationMessage, setViolationMessage] = useState('');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const videoStreamRef = useRef<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const startTimeRef = useRef<number>(0);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  const fullScreen = useFullScreenMonitor({
+    onFullScreenExit: () => {
+      setViolationMessage('⚠️ You exited full-screen mode. Please return to full-screen to continue.');
+      setShowViolationWarning(true);
+      handlePauseInterview();
+    },
+    onViolation: (type) => {
+      console.log('Full-screen violation:', type);
+    },
+  });
+
+  const tabDetector = useTabSwitchDetector({
+    onTabSwitch: () => {
+      setViolationMessage('⚠️ You switched tabs. Please stay on this page during the interview.');
+      setShowViolationWarning(true);
+      handlePauseInterview();
+    },
+    onWindowBlur: () => {
+      setViolationMessage('⚠️ You switched to another application. Please stay focused on the interview.');
+      setShowViolationWarning(true);
+      handlePauseInterview();
+    },
+    onViolation: (type, duration) => {
+      console.log(`Violation: ${type}, Duration: ${duration}s`);
+    },
+  });
 
   const currentQuestion = questions[currentQuestionIndex];
 
@@ -123,16 +158,28 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
   const requestMediaPermissions = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user'
+        },
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
       });
 
       videoStreamRef.current = stream;
       setIsMicrophoneEnabled(true);
 
-      const videoElement = document.getElementById('user-video') as HTMLVideoElement;
-      if (videoElement) {
-        videoElement.srcObject = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().catch(err => {
+            console.error('Error playing video:', err);
+          });
+        };
       }
     } catch (error) {
       console.error('Error accessing media devices:', error);
@@ -141,14 +188,31 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
     }
   };
 
-  const startQuestion = () => {
+  const startQuestion = async () => {
+    await fullScreen.requestFullScreen();
+
     setStage('question');
     setStatusMessage(`Question ${currentQuestionIndex + 1} of ${questions.length}`);
     setCurrentTranscript('');
 
+    if (currentQuestion && textToSpeechService.isSupported()) {
+      try {
+        await textToSpeechService.speak(
+          currentQuestion.question_text,
+          (text, speaking) => {
+            setAiSpeaking(speaking);
+            setAiCurrentText(speaking ? text : '');
+          },
+          { rate: 0.9, pitch: 1.0 }
+        );
+      } catch (error) {
+        console.error('Error with text-to-speech:', error);
+      }
+    }
+
     setTimeout(() => {
       startListening();
-    }, 2000);
+    }, 1000);
   };
 
   const startListening = async () => {
@@ -159,9 +223,13 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
     if (isMicrophoneEnabled && videoStreamRef.current) {
       try {
         audioChunksRef.current = [];
-        const mediaRecorder = new MediaRecorder(videoStreamRef.current, {
-          mimeType: 'video/webm;codecs=vp8,opus'
-        });
+
+        const options: MediaRecorderOptions = { mimeType: 'video/webm;codecs=vp8,opus' };
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          options.mimeType = 'video/webm';
+        }
+
+        const mediaRecorder = new MediaRecorder(videoStreamRef.current, options);
 
         mediaRecorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
@@ -251,14 +319,31 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
     }
   };
 
-  const moveToNextQuestion = () => {
+  const moveToNextQuestion = async () => {
     speechRecognitionService.reset();
     setCurrentTranscript('');
 
     if (currentQuestionIndex + 1 < questions.length) {
       setCurrentQuestionIndex(prev => prev + 1);
       setStage('question');
-      setTimeout(() => startListening(), 2000);
+
+      const nextQuestion = questions[currentQuestionIndex + 1];
+      if (nextQuestion && textToSpeechService.isSupported()) {
+        try {
+          await textToSpeechService.speak(
+            nextQuestion.question_text,
+            (text, speaking) => {
+              setAiSpeaking(speaking);
+              setAiCurrentText(speaking ? text : '');
+            },
+            { rate: 0.9, pitch: 1.0 }
+          );
+        } catch (error) {
+          console.error('Error with text-to-speech:', error);
+        }
+      }
+
+      setTimeout(() => startListening(), 1000);
     } else {
       completeInterview();
     }
@@ -272,23 +357,49 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       const actualDuration = config.durationMinutes * 60 - timeRemaining;
       const overallScore = await interviewService.calculateOverallScore(session.id);
 
-      await interviewService.updateSessionStatus(
+      await interviewService.updateSessionWithSecurity(
         session.id,
         'completed',
         overallScore,
-        actualDuration
+        actualDuration,
+        {
+          tabSwitchCount: tabDetector.tabSwitchCount,
+          fullScreenExits: fullScreen.violations,
+          totalViolationTime: tabDetector.totalTimeAway,
+          violationsLog: tabDetector.violations
+        }
       );
 
+      fullScreen.exitFullScreen();
       onInterviewComplete(session.id);
     }
   };
 
-  const handlePause = () => {
-    setIsPaused(!isPaused);
-    if (!isPaused) {
-      if (stage === 'listening') {
-        stopListening();
+  const handlePauseInterview = () => {
+    setIsPaused(true);
+    if (stage === 'listening') {
+      if (speechRecognitionService.isSupported()) {
+        speechRecognitionService.stopListening();
       }
+    }
+    textToSpeechService.pause();
+  };
+
+  const handleResumeInterview = () => {
+    setIsPaused(false);
+    setShowViolationWarning(false);
+    textToSpeechService.resume();
+
+    if (!fullScreen.isFullScreen) {
+      fullScreen.requestFullScreen();
+    }
+  };
+
+  const handlePause = () => {
+    if (isPaused) {
+      handleResumeInterview();
+    } else {
+      handlePauseInterview();
     }
   };
 
@@ -298,6 +409,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
         await interviewService.updateSessionStatus(session.id, 'abandoned');
       }
       cleanup();
+      fullScreen.exitFullScreen();
       onBack();
     }
   };
@@ -315,6 +427,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       clearInterval(timerIntervalRef.current);
     }
 
+    textToSpeechService.stop();
     speechRecognitionService.reset();
   };
 
@@ -323,6 +436,8 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  const totalViolations = tabDetector.tabSwitchCount + fullScreen.violations;
 
   if (stage === 'loading') {
     return (
@@ -344,10 +459,25 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
             You will answer {questions.length} questions in {config.durationMinutes} minutes.
             Take your time and speak clearly.
           </p>
-          <div className="bg-dark-300 rounded-lg p-4 mb-6">
+          <div className="bg-dark-300 rounded-lg p-4 mb-6 space-y-2">
             <p className="text-gray-300 text-sm">
-              {isMicrophoneEnabled ? '✓ Microphone and camera are ready' : '⚠ Media devices not available'}
+              {isMicrophoneEnabled ? '✓ Camera and microphone are ready' : '⚠ Media devices not available'}
             </p>
+            <p className="text-gray-300 text-sm">
+              {textToSpeechService.isSupported() ? '✓ AI voice enabled' : '⚠ Text-to-speech not available'}
+            </p>
+            <p className="text-gray-300 text-sm">
+              ✓ Full-screen security mode will be enabled
+            </p>
+          </div>
+          <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-4 mb-6 text-left">
+            <h3 className="text-yellow-400 font-semibold mb-2">⚠️ Important Guidelines:</h3>
+            <ul className="text-gray-300 text-sm space-y-1">
+              <li>• The interview will run in full-screen mode</li>
+              <li>• Do not switch tabs or minimize the window</li>
+              <li>• Do not open other applications</li>
+              <li>• Violations will be tracked and reported</li>
+            </ul>
           </div>
           <button
             onClick={startQuestion}
@@ -362,6 +492,32 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
 
   return (
     <div className="min-h-screen bg-dark-100 flex flex-col">
+      {showViolationWarning && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4">
+          <div className="bg-dark-200 rounded-2xl p-8 max-w-md w-full border-2 border-red-500">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="w-8 h-8 text-red-500" />
+              <h3 className="text-xl font-bold text-red-400">Interview Paused</h3>
+            </div>
+            <p className="text-gray-300 mb-6">{violationMessage}</p>
+            <div className="bg-red-900/20 border border-red-700 rounded-lg p-4 mb-6">
+              <p className="text-red-300 text-sm">
+                <strong>Violations Detected:</strong> {totalViolations}
+              </p>
+              <p className="text-red-300 text-sm mt-1">
+                <strong>Time Away:</strong> {tabDetector.totalTimeAway}s
+              </p>
+            </div>
+            <button
+              onClick={handleResumeInterview}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
+            >
+              Return to Interview
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="fixed top-0 left-0 right-0 bg-dark-200 border-b border-dark-300 shadow-xl z-50">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -382,6 +538,30 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
               <div className="text-gray-300">
                 Question {currentQuestionIndex + 1} / {questions.length}
               </div>
+
+              {totalViolations > 0 && (
+                <>
+                  <div className="h-8 w-px bg-dark-300"></div>
+                  <div className="flex items-center gap-2 text-red-400">
+                    <AlertTriangle className="w-4 h-4" />
+                    <span className="text-sm">Violations: {totalViolations}</span>
+                  </div>
+                </>
+              )}
+
+              {!fullScreen.isFullScreen && stage !== 'completed' && (
+                <>
+                  <div className="h-8 w-px bg-dark-300"></div>
+                  <button
+                    onClick={fullScreen.requestFullScreen}
+                    className="flex items-center gap-2 text-yellow-400 hover:text-yellow-300 transition-colors"
+                    title="Enter Full-Screen"
+                  >
+                    <Maximize className="w-4 h-4" />
+                    <span className="text-sm">Enter Full-Screen</span>
+                  </button>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-3">
@@ -409,10 +589,20 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
         <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-3 gap-6 h-full">
           <div className="bg-dark-200 rounded-xl p-6 flex items-center justify-center">
             <div className="text-center">
-              <div className="w-32 h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full mx-auto mb-4 flex items-center justify-center">
+              <div className={`w-32 h-32 rounded-full mx-auto mb-4 flex items-center justify-center transition-all ${
+                aiSpeaking
+                  ? 'bg-gradient-to-br from-blue-500 to-purple-600 animate-pulse'
+                  : 'bg-gradient-to-br from-blue-500/50 to-purple-600/50'
+              }`}>
                 <span className="text-4xl">🤖</span>
               </div>
-              <p className="text-gray-400 text-sm">AI Interviewer</p>
+              <p className="text-gray-400 text-sm mb-2">AI Interviewer</p>
+              {aiSpeaking && (
+                <div className="flex items-center justify-center gap-2 text-blue-400">
+                  <Volume2 className="w-4 h-4 animate-pulse" />
+                  <span className="text-xs">Speaking...</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -425,6 +615,16 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                 <h3 className="text-2xl font-semibold text-gray-100 mb-6">
                   {currentQuestion.question_text}
                 </h3>
+
+                {aiSpeaking && aiCurrentText && (
+                  <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-4 mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Volume2 className="w-4 h-4 text-blue-400" />
+                      <span className="text-blue-400 text-sm">AI is speaking:</span>
+                    </div>
+                    <p className="text-gray-300 text-sm italic">{aiCurrentText}</p>
+                  </div>
+                )}
 
                 {stage === 'listening' && (
                   <div className="space-y-4">
@@ -463,7 +663,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
             <div className="text-gray-400 text-sm mb-4">Your Camera</div>
             <div className="flex-1 bg-dark-300 rounded-lg overflow-hidden relative">
               <video
-                id="user-video"
+                ref={videoRef}
                 autoPlay
                 playsInline
                 muted
@@ -482,7 +682,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
               {isRecording ? (
                 <>
                   <Mic className="w-5 h-5 text-red-500 animate-pulse" />
-                  <span className="text-red-500 text-sm">Recording</span>
+                  <span className="text-red-500 text-sm font-semibold">Recording</span>
                 </>
               ) : (
                 <>

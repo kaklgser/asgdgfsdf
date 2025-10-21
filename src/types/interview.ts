@@ -33,6 +33,15 @@ export interface MockInterviewSession {
   completed_at?: string;
   created_at: string;
   updated_at: string;
+  tab_switches_count?: number;
+  fullscreen_exits_count?: number;
+  total_violation_time?: number;
+  violations_log?: Array<{
+    type: string;
+    timestamp: number;
+    duration: number;
+  }>;
+  security_score?: number;
 }
 
 export interface InterviewResponse {

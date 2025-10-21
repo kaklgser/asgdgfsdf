@@ -278,6 +278,69 @@ export class InterviewService {
 
     return Math.round((totalScore / responses.length) * 10);
   }
+
+  async updateSessionWithSecurity(
+    sessionId: string,
+    status: 'in_progress' | 'completed' | 'abandoned' | 'paused',
+    overallScore: number,
+    actualDuration: number,
+    securityData: {
+      tabSwitchCount: number;
+      fullScreenExits: number;
+      totalViolationTime: number;
+      violationsLog: Array<{
+        type: string;
+        timestamp: number;
+        duration: number;
+      }>;
+    }
+  ): Promise<void> {
+    const securityScore = this.calculateSecurityScore(
+      securityData.tabSwitchCount,
+      securityData.fullScreenExits,
+      securityData.totalViolationTime
+    );
+
+    const updateData: any = {
+      status,
+      overall_score: overallScore,
+      actual_duration_seconds: actualDuration,
+      tab_switches_count: securityData.tabSwitchCount,
+      fullscreen_exits_count: securityData.fullScreenExits,
+      total_violation_time: securityData.totalViolationTime,
+      violations_log: securityData.violationsLog,
+      security_score: securityScore,
+      updated_at: new Date().toISOString()
+    };
+
+    if (status === 'completed') {
+      updateData.completed_at = new Date().toISOString();
+    }
+
+    const { error } = await supabase
+      .from('mock_interview_sessions')
+      .update(updateData)
+      .eq('id', sessionId);
+
+    if (error) {
+      console.error('Error updating session with security data:', error);
+      throw new Error(`Failed to update session with security data: ${error.message}`);
+    }
+  }
+
+  private calculateSecurityScore(
+    tabSwitches: number,
+    fullScreenExits: number,
+    violationTime: number
+  ): number {
+    let score = 100;
+
+    score -= tabSwitches * 5;
+    score -= fullScreenExits * 10;
+    score -= Math.floor(violationTime / 10) * 2;
+
+    return Math.max(0, Math.min(100, score));
+  }
 }
 
 export const interviewService = new InterviewService();
