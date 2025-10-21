@@ -739,20 +739,21 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                 {stage === 'listening' && (
                   <div className="space-y-4">
                     {showAutoSubmitInfo && (
-                      <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 mb-3">
-                        <div className="flex items-start gap-2">
-                          <div className="text-blue-400 text-xs flex-1">
-                            <strong>Auto-Submit:</strong> Answer will auto-submit after 5 seconds of silence
-                          </div>
-                          <button
-                            onClick={() => setShowAutoSubmitInfo(false)}
-                            className="text-blue-400 hover:text-blue-300 text-xs"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    )}
+  <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3 mb-3">
+    <div className="flex items-start gap-2">
+      <div className="text-blue-400 text-xs flex-1">
+        <strong>Auto-Submit:</strong> Answer will auto-submit after 5 seconds of silence
+      </div>
+      <button
+        onClick={() => setShowAutoSubmitInfo(false)}
+        className="text-blue-400 hover:text-blue-300 text-xs"
+      >
+        ✕
+      </button>
+    </div>
+  </div>
+)}
+
 
                     <div className="bg-dark-300 rounded-lg p-4 min-h-[100px] max-h-[200px] overflow-y-auto">
                       <p className="text-gray-300 text-sm">
