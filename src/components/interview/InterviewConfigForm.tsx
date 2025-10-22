@@ -164,7 +164,7 @@ export const InterviewConfigForm: React.FC<InterviewConfigFormProps> = ({
                           <div className="flex items-center justify-center w-full h-32 px-4 transition bg-white dark:bg-dark-300 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl hover:border-green-500 dark:hover:border-green-500 cursor-pointer">
                             <div className="text-center">
                               <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                              <p className="text-sm text-gray-600 dark:text-gray-400 max-w-[26rem] truncate" title={resumeFile ? resumeFile.name : undefined}>
                                 {resumeFile ? resumeFile.name : 'Click to upload resume (PDF, DOCX, max 5MB)'}
                               </p>
                             </div>
@@ -211,7 +211,7 @@ export const InterviewConfigForm: React.FC<InterviewConfigFormProps> = ({
                         <div className="flex items-center gap-3">
                           <FileText className="w-8 h-8 text-green-600 dark:text-green-400" />
                           <div>
-                            <h4 className="font-semibold text-secondary-900 dark:text-gray-100">
+                            <h4 className="font-semibold text-secondary-900 dark:text-gray-100 max-w-[24rem] truncate" title={uploadedResume.file_name}>
                               {uploadedResume.file_name}
                             </h4>
                             <p className="text-xs text-secondary-600 dark:text-gray-400">
