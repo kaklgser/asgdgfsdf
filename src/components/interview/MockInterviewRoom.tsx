@@ -106,7 +106,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       silenceCheckIntervalRef.current = setInterval(() => {
         if (speechActivityDetector.isInitialized()) {
           const currentSilence = speechActivityDetector.getCurrentSilenceDuration();
-          const countdown = Math.max(0, 10 - currentSilence); // Changed from 5 to 10 seconds
+          const countdown = Math.max(0, 5 - currentSilence); // CHANGED: 10 to 5 seconds
           setSilenceCountdown(countdown);
 
           // Only auto-submit if user has spoken for at least 3 seconds
@@ -226,13 +226,29 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       videoStreamRef.current = stream;
       setIsMicrophoneEnabled(true);
 
+      // FIXED: Better video attachment with delay
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play().catch(err => {
-            console.error('Error playing video:', err);
-          });
-        };
+        
+        // Wait for metadata to load
+        await new Promise<void>((resolve) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = () => {
+              resolve();
+            };
+          }
+        });
+
+        // Small delay before playing
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Play the video
+        try {
+          await videoRef.current.play();
+          console.log('Video playback started successfully');
+        } catch (playError) {
+          console.error('Error playing video:', playError);
+        }
       }
     } catch (error) {
       console.error('Error accessing media devices:', error);
@@ -313,8 +329,8 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
     if (videoStreamRef.current) {
       try {
         await speechActivityDetector.initialize(videoStreamRef.current, {
-          silenceThreshold: 10000, // Changed from 5000 to 10000 (10 seconds)
-          volumeThreshold: -50
+          silenceThreshold: 5000, // CHANGED: 10000 to 5000 (5 seconds)
+          volumeThreshold: -40 // CHANGED: -50 to -40 (less sensitive to background noise)
         });
 
         speechActivityDetector.start(
@@ -323,7 +339,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
           },
           () => {
             setIsSpeaking(true);
-            setSilenceCountdown(10); // Changed from 5 to 10
+            setSilenceCountdown(5); // CHANGED: 10 to 5
             if (!hasStartedSpeaking) {
               setHasStartedSpeaking(true);
             }
@@ -662,7 +678,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
               <li>• Do not switch tabs or minimize the window</li>
               <li>• Do not open other applications</li>
               <li>• Violations will be tracked and reported</li>
-              <li>• Answers auto-submit after 10 seconds of silence (only after you start speaking)</li>
+              <li>• Answers auto-submit after 5 seconds of silence (only after you start speaking)</li>
             </ul>
           </div>
           <button
@@ -718,7 +734,8 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       />
 
       <div className="flex-1 mt-20 pt-8 pb-20">
-        <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-3 gap-6 h-full">
+        {/* CHANGED: Better grid layout for center focus */}
+        <div className="max-w-7xl mx-auto px-4 grid md:grid-cols-[300px_1fr_350px] gap-6 h-full">
           <div className="bg-dark-200 rounded-xl p-6 flex items-center justify-center">
             <div className="text-center">
               <div className={`w-32 h-32 rounded-full mx-auto mb-4 flex items-center justify-center transition-all ${
@@ -765,7 +782,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                         <div className="flex items-start gap-3">
                           <div className="text-blue-300 text-sm flex-1">
                             <strong className="text-blue-200 text-base">📌 Auto-Submit Info:</strong>
-                            <p className="mt-1">Your answer will automatically submit after <strong>10 seconds</strong> of silence, but only after you've started speaking.</p>
+                            <p className="mt-1">Your answer will automatically submit after <strong>5 seconds</strong> of silence, but only after you've started speaking.</p>
                           </div>
                           <button
                             onClick={() => setShowAutoSubmitInfo(false)}
@@ -783,7 +800,8 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                       </p>
                     </div>
 
-                    {silenceCountdown < 10 && silenceCountdown > 0 && hasStartedSpeaking && (
+                    {/* CHANGED: Countdown now shows for 5 seconds instead of 10 */}
+                    {silenceCountdown < 5 && silenceCountdown > 0 && hasStartedSpeaking && (
                       <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
                         <div className="flex items-center justify-between">
                           <span className="text-yellow-400 text-sm">Auto-submitting in:</span>
@@ -792,7 +810,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                         <div className="mt-2 w-full bg-dark-400 rounded-full h-2 overflow-hidden">
                           <div
                             className="bg-yellow-400 h-full transition-all duration-1000"
-                            style={{ width: `${(silenceCountdown / 10) * 100}%` }}
+                            style={{ width: `${(silenceCountdown / 5) * 100}%` }}
                           ></div>
                         </div>
                       </div>
@@ -858,15 +876,16 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
             )}
           </div>
 
+          {/* CHANGED: Larger video panel with better sizing */}
           <div className="bg-dark-200 rounded-xl p-6 flex flex-col">
             <div className="text-gray-400 text-sm mb-4">Your Camera</div>
-            <div className="flex-1 bg-dark-300 rounded-lg overflow-hidden relative">
+            <div className="flex-1 bg-dark-300 rounded-lg overflow-hidden relative" style={{ minHeight: '400px' }}>
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover min-h-[400px]"
               />
               {!isMicrophoneEnabled && (
                 <div className="absolute inset-0 flex items-center justify-center bg-dark-400">
