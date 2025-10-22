@@ -66,6 +66,10 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const silenceCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const autoSubmitTriggeredRef = useRef<boolean>(false);
+  // New refs to prevent background actions after ending
+  const isEndingRef = useRef<boolean>(false);
+  const startListeningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const moveNextTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fullScreen = useFullScreenMonitor({
     onFullScreenExit: () => {
@@ -293,12 +297,15 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       }
     }
 
-    setTimeout(() => {
-      startListening();
-    }, 1000);
+    // Start listening shortly after TTS prompt
+    if (startListeningTimeoutRef.current) clearTimeout(startListeningTimeoutRef.current);
+    startListeningTimeoutRef.current = setTimeout(() => {
+      if (!isEndingRef.current) startListening();
+    }, 500);
   };
 
   const startListening = async () => {
+    if (isEndingRef.current) return;
     setStage('listening');
     setStatusMessage('Listening to your answer...');
     startTimeRef.current = Date.now();
@@ -523,9 +530,11 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       setStage('feedback');
       setStatusMessage('Feedback generated');
 
-      setTimeout(() => {
-        moveToNextQuestion();
-      }, 3000);
+      if (moveNextTimeoutRef.current) clearTimeout(moveNextTimeoutRef.current);
+      // Shorter feedback delay for faster flow
+      moveNextTimeoutRef.current = setTimeout(() => {
+        if (!isEndingRef.current) moveToNextQuestion();
+      }, 1200);
     } catch (error) {
       console.error('Error processing answer:', error);
       alert('Failed to process answer. Moving to next question.');
@@ -534,6 +543,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
   };
 
   const moveToNextQuestion = async () => {
+    if (isEndingRef.current) return;
     speechRecognitionService.reset();
     setCurrentTranscript('');
 
@@ -557,7 +567,10 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
         }
       }
 
-      setTimeout(() => startListening(), 1000);
+      if (startListeningTimeoutRef.current) clearTimeout(startListeningTimeoutRef.current);
+      startListeningTimeoutRef.current = setTimeout(() => {
+        if (!isEndingRef.current) startListening();
+      }, 500);
     } else {
       completeInterview();
     }
@@ -619,6 +632,8 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
 
   const handleEndInterview = async () => {
     if (window.confirm('End interview now and view your report? Your progress so far will be analyzed.')) {
+      // Mark ending state to prevent any pending timeouts from firing
+      isEndingRef.current = true;
       // Stop media and timers first
       cleanup();
       // Finalize the session and navigate to the summary report
@@ -641,6 +656,16 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
 
     if (silenceCheckIntervalRef.current) {
       clearInterval(silenceCheckIntervalRef.current);
+    }
+
+    if (startListeningTimeoutRef.current) {
+      clearTimeout(startListeningTimeoutRef.current);
+      startListeningTimeoutRef.current = null;
+    }
+
+    if (moveNextTimeoutRef.current) {
+      clearTimeout(moveNextTimeoutRef.current);
+      moveNextTimeoutRef.current = null;
     }
 
     speechActivityDetector.cleanup();
