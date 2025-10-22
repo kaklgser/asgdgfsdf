@@ -20,7 +20,26 @@ class ResumeAnalysisService {
       throw new Error(validation.error || 'Invalid file');
     }
 
-    const filePath = `${userId}/${Date.now()}_${file.name}`;
+    // Sanitize filename to avoid Supabase Storage "Invalid key" (non-ASCII or reserved chars)
+    const sanitizeFilename = (name: string): string => {
+      // Keep base and extension separate
+      const lastDot = name.lastIndexOf('.');
+      const base = (lastDot > 0 ? name.slice(0, lastDot) : name)
+        .normalize('NFKD')
+        .replace(/[\u0300-\u036f]/g, '') // remove diacritics
+        .replace(/[^A-Za-z0-9._-]+/g, '-') // replace non-ASCII/unsafe with '-'
+        .replace(/-{2,}/g, '-')
+        .replace(/^[-_.]+|[-_.]+$/g, '');
+      const ext = (lastDot > 0 ? name.slice(lastDot + 1) : '')
+        .replace(/[^A-Za-z0-9]/g, '')
+        .slice(0, 10);
+      const safe = (ext ? `${base}.${ext}` : base) || `resume_${Date.now()}.pdf`;
+      // Limit overall length to be safe for URLs
+      return safe.slice(0, 120);
+    };
+
+    const safeFileName = sanitizeFilename(file.name);
+    const filePath = `${userId}/${Date.now()}_${safeFileName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('user-resumes')
