@@ -21,20 +21,24 @@ class HybridQuestionService {
     totalQuestions: number = 10
   ): Promise<InterviewQuestion[]> {
     const mode: QuestionGenerationMode = 'hybrid';
-    const databaseQuestionsCount = Math.ceil(totalQuestions * 0.6);
-    const aiQuestionsCount = totalQuestions - databaseQuestionsCount;
+
+    // Ensure a well-rounded interview: mix DB and AI, and cover categories.
+    const desiredDbCount = Math.ceil(totalQuestions * 0.6);
+
+    // Exclude questions the user has already seen for this company/role when possible
+    const previouslyAskedIds = await this.getPreviouslyAskedQuestionIds(resume.user_id, config);
 
     const databaseQuestions = await this.selectDatabaseQuestions(
       config,
       resume,
-      databaseQuestionsCount
+      desiredDbCount,
+      totalQuestions,
+      new Set(previouslyAskedIds)
     );
 
-    const aiQuestions = await this.generateAIQuestions(
-      config,
-      resume,
-      aiQuestionsCount
-    );
+    // If DB couldn't fill due to exclusions, top up with AI so total matches
+    const remainingForAI = Math.max(0, totalQuestions - databaseQuestions.length);
+    const aiQuestions = await this.generateAIQuestions(config, resume, remainingForAI);
 
     const allQuestions = [...databaseQuestions, ...aiQuestions];
     return this.shuffleQuestions(allQuestions);
@@ -43,47 +47,63 @@ class HybridQuestionService {
   private async selectDatabaseQuestions(
     config: InterviewConfig,
     resume: UserResume,
-    count: number
+    count: number,
+    totalPlanned: number,
+    excludeIds: Set<string>
   ): Promise<InterviewQuestion[]> {
     const categories = this.getCategoriesForConfig(config);
-    const difficulty = this.getDifficultyForExperience(resume.experience_level || 'junior');
+    const desiredMix = this.getDesiredCategoryMix(config, resume, totalPlanned);
 
-    let query = supabase
-      .from('interview_questions')
-      .select('*')
-      .eq('is_active', true)
-      .eq('is_dynamic', false)
-      .in('category', categories);
+    const perCategorySelected: InterviewQuestion[] = [];
+    const remainingPool: { question: InterviewQuestion; score: number }[] = [];
 
-    if (config.companyName) {
-      query = query.or(
-        `interview_type.eq.general,and(interview_type.eq.company-specific,company_name.eq.${config.companyName})`
-      );
-    } else {
-      query = query.eq('interview_type', 'general');
+    // Fetch and score per-category to guarantee coverage
+    for (const cat of categories) {
+      const take = desiredMix[cat] ? Math.min(desiredMix[cat], count - perCategorySelected.length) : 0;
+      if (take <= 0) continue;
+
+      let query = supabase
+        .from('interview_questions')
+        .select('*')
+        .eq('is_active', true)
+        .eq('is_dynamic', false)
+        .eq('category', cat);
+
+      if (config.companyName) {
+        const roleFilter = config.targetRole ? `,role.eq.${config.targetRole}` : '';
+        // Prefer company-specific questions for the chosen company/role, but allow general as fallback
+        query = query.or(
+          `interview_type.eq.general,and(interview_type.eq.company-specific,company_name.eq.${config.companyName}${roleFilter})`
+        );
+      } else {
+        query = query.eq('interview_type', 'general');
+      }
+
+      const { data: catQuestions, error } = await query;
+      if (error || !catQuestions || catQuestions.length === 0) continue;
+      // Filter out previously asked questions
+      const fresh = (catQuestions as any[]).filter(q => !excludeIds.has(q.id));
+      const pool = fresh.length > 0 ? fresh : (catQuestions as any[]); // fallback if all were previously asked
+
+      const scored = pool.map(q => ({ question: q as unknown as InterviewQuestion, score: this.calculateRelevanceScore(q as any, resume) }));
+      scored.sort((a, b) => b.score - a.score);
+
+      const picked = scored.slice(0, take).map(s => s.question);
+      perCategorySelected.push(...picked);
+
+      // Save leftovers to fill any remaining slots later
+      remainingPool.push(...scored.slice(take));
+      if (perCategorySelected.length >= count) break;
     }
 
-    const { data: allQuestions, error } = await query;
-
-    if (error) {
-      console.error('Error fetching database questions:', error);
-      return [];
+    // Fill remaining with highest-scoring leftovers across categories
+    if (perCategorySelected.length < count) {
+      remainingPool.sort((a, b) => b.score - a.score);
+      const needed = count - perCategorySelected.length;
+      perCategorySelected.push(...remainingPool.slice(0, needed).map(s => s.question));
     }
 
-    if (!allQuestions || allQuestions.length === 0) {
-      return [];
-    }
-
-    const scoredQuestions = allQuestions.map(q => ({
-      question: q,
-      score: this.calculateRelevanceScore(q, resume)
-    }));
-
-    scoredQuestions.sort((a, b) => b.score - a.score);
-
-    const selected = scoredQuestions.slice(0, count).map(sq => sq.question);
-
-    return selected;
+    return perCategorySelected;
   }
 
   private calculateRelevanceScore(
@@ -92,14 +112,28 @@ class HybridQuestionService {
   ): number {
     let score = 0;
 
-    const questionText = question.question_text.toLowerCase();
-    const resumeSkills = resume.skills_detected.map(s => s.toLowerCase());
+    const text = question.question_text.toLowerCase();
+    const resumeSkills = (resume.skills_detected || []).map(s => s.toLowerCase());
+    const projectTechs = (resume.parsed_data?.projects || []).flatMap(p => (p.technologies || []).map(t => t.toLowerCase()));
+    const workTechs = (resume.parsed_data?.work_experience || []).flatMap(w => (w.technologies || []).map(t => t.toLowerCase()));
 
-    resumeSkills.forEach(skill => {
-      if (questionText.includes(skill)) {
-        score += 10;
-      }
-    });
+    // Skills matches
+    for (const skill of resumeSkills) {
+      if (text.includes(skill)) score += 10;
+    }
+
+    // Project/experience technology matches weigh a bit more to drive project questions
+    for (const tech of projectTechs) {
+      if (text.includes(tech)) score += 6;
+    }
+    for (const tech of workTechs) {
+      if (text.includes(tech)) score += 4;
+    }
+
+    // Small boost for category alignment if projects exist
+    if (question.category === 'Projects' && (resume.parsed_data?.projects?.length || 0) > 0) {
+      score += 8;
+    }
 
     if (question.difficulty === 'Easy') score += 1;
     else if (question.difficulty === 'Medium') score += 2;
@@ -128,6 +162,109 @@ class HybridQuestionService {
     }
 
     return score + Math.random() * 2;
+  }
+
+  // Compute target per-category distribution to ensure "all-in-one" coverage
+  private getDesiredCategoryMix(
+    config: InterviewConfig,
+    resume: UserResume,
+    total: number
+  ): Record<QuestionCategory, number> {
+    const categories = this.getCategoriesForConfig(config);
+    const mix: Record<QuestionCategory, number> = {
+      Technical: 0,
+      HR: 0,
+      Behavioral: 0,
+      Coding: 0,
+      Projects: 0,
+    } as Record<QuestionCategory, number>;
+
+    if (config.interviewCategory === 'technical') {
+      mix.Technical = Math.round(total * 0.5);
+      mix.Coding = Math.round(total * 0.3);
+      mix.Projects = Math.max(1, total - (mix.Technical + mix.Coding));
+    } else if (config.interviewCategory === 'hr') {
+      mix.HR = Math.round(total * 0.6);
+      mix.Behavioral = total - mix.HR;
+    } else {
+      // Mixed: aim for broad coverage with slight emphasis on Technical
+      mix.Technical = Math.round(total * 0.4);
+      mix.Coding = Math.round(total * 0.2);
+      mix.Behavioral = Math.max(1, Math.round(total * 0.15));
+      mix.HR = Math.max(1, Math.round(total * 0.15));
+      mix.Projects = Math.max(1, total - (mix.Technical + mix.Coding + mix.Behavioral + mix.HR));
+    }
+
+    // If no projects on resume, reallocate Projects quota to Technical
+    const hasProjects = (resume.parsed_data?.projects?.length || 0) > 0;
+    if (!hasProjects) {
+      mix.Technical += mix.Projects;
+      mix.Projects = 0;
+    }
+
+    // Only keep categories allowed by config
+    for (const key of Object.keys(mix) as QuestionCategory[]) {
+      if (!categories.includes(key)) mix[key] = 0;
+    }
+
+    // Ensure total does not exceed target
+    const sum = (Object.values(mix) as number[]).reduce((a, b) => a + b, 0);
+    if (sum > total) {
+      // scale down proportionally
+      const ratio = total / sum;
+      (Object.keys(mix) as QuestionCategory[]).forEach(k => {
+        mix[k] = Math.floor(mix[k] * ratio);
+      });
+      // Fill any rounding deficit
+      let deficit = total - (Object.values(mix) as number[]).reduce((a, b) => a + b, 0);
+      for (const k of ['Technical', 'Coding', 'Behavioral', 'HR', 'Projects'] as QuestionCategory[]) {
+        if (deficit <= 0) break;
+        if (categories.includes(k)) { mix[k] += 1; deficit--; }
+      }
+    }
+
+    return mix;
+  }
+
+  // Fetch question_ids the user has already answered in similar sessions to avoid repetition
+  private async getPreviouslyAskedQuestionIds(
+    userId: string,
+    config: InterviewConfig
+  ): Promise<string[]> {
+    try {
+      // First fetch recent sessions for this user that match company/role if provided
+      let sessionQuery = supabase
+        .from('mock_interview_sessions')
+        .select('id, company_name, target_role, interview_category, session_type')
+        .eq('user_id', userId)
+        .order('started_at', { ascending: false })
+        .limit(10);
+
+      const { data: sessions, error: sErr } = await sessionQuery;
+      if (sErr || !sessions || sessions.length === 0) return [];
+
+      // Prefer sessions for the same company/role, otherwise include recent ones
+      const matching = sessions.filter((s: any) =>
+        (config.companyName ? s.company_name === config.companyName : true) &&
+        (config.targetRole ? s.target_role === config.targetRole : true)
+      );
+
+      const sessionIds = (matching.length > 0 ? matching : sessions).map((s: any) => s.id);
+      if (sessionIds.length === 0) return [];
+
+      const { data: responses, error: rErr } = await supabase
+        .from('interview_responses')
+        .select('question_id')
+        .in('session_id', sessionIds)
+        .limit(500);
+
+      if (rErr || !responses) return [];
+      const ids = Array.from(new Set(responses.map((r: any) => r.question_id).filter(Boolean)));
+      return ids as string[];
+    } catch (e) {
+      console.error('getPreviouslyAskedQuestionIds failed:', e);
+      return [];
+    }
   }
 
   private async generateAIQuestions(
