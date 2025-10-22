@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient';
+import { hybridQuestionService } from './hybridQuestionService';
 import {
   InterviewQuestion,
   MockInterviewSession,
@@ -8,6 +9,7 @@ import {
   InterviewSessionWithQuestions,
   AIFeedback
 } from '../types/interview';
+import { UserResume } from '../types/resumeInterview';
 
 export class InterviewService {
   async getQuestionsByCategory(
@@ -40,8 +42,14 @@ export class InterviewService {
   async getMixedQuestions(
     categories: QuestionCategory[],
     limit: number = 10,
-    companyName?: string
+    companyName?: string,
+    resume?: UserResume,
+    config?: InterviewConfig
   ): Promise<InterviewQuestion[]> {
+    if (resume && config) {
+      return await hybridQuestionService.selectQuestionsForInterview(config, resume, limit);
+    }
+
     const questionsPerCategory = Math.ceil(limit / categories.length);
     const allQuestions: InterviewQuestion[] = [];
 
@@ -53,7 +61,7 @@ export class InterviewService {
     return allQuestions.slice(0, limit);
   }
 
-  async createSession(config: InterviewConfig, userId: string): Promise<MockInterviewSession> {
+  async createSession(config: InterviewConfig, userId: string, resume?: UserResume): Promise<MockInterviewSession> {
     const sessionData = {
       user_id: userId,
       session_type: config.sessionType,
@@ -63,7 +71,11 @@ export class InterviewService {
       domain: config.domain,
       duration_minutes: config.durationMinutes,
       status: 'in_progress' as const,
-      started_at: new Date().toISOString()
+      started_at: new Date().toISOString(),
+      resume_id: resume?.id,
+      question_generation_mode: resume ? 'hybrid' : 'database_only',
+      database_questions_count: 0,
+      ai_generated_questions_count: 0
     };
 
     const { data, error } = await supabase
@@ -156,6 +168,10 @@ export class InterviewService {
       toneRating?: string;
       confidenceRating?: number;
       responseDuration?: number;
+      resumeRelevanceScore?: number;
+      validatesResumeClaim?: boolean;
+      resumeSkillValidated?: string;
+      credibilityScore?: number;
     }
   ): Promise<InterviewResponse> {
     const dataToInsert = {
@@ -170,7 +186,11 @@ export class InterviewService {
       individual_score: responseData.individualScore,
       tone_rating: responseData.toneRating,
       confidence_rating: responseData.confidenceRating,
-      response_duration_seconds: responseData.responseDuration
+      response_duration_seconds: responseData.responseDuration,
+      resume_relevance_score: responseData.resumeRelevanceScore,
+      validates_resume_claim: responseData.validatesResumeClaim,
+      resume_skill_validated: responseData.resumeSkillValidated,
+      credibility_score: responseData.credibilityScore
     };
 
     const { data, error } = await supabase

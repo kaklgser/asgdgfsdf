@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Video, Mic, MicOff, Volume2, AlertTriangle, SkipForward, Loader2 } from 'lucide-react';
 import { InterviewConfig, InterviewQuestion, MockInterviewSession } from '../../types/interview';
+import { UserResume } from '../../types/resumeInterview';
 import { interviewService } from '../../services/interviewService';
 import { interviewFeedbackService } from '../../services/interviewFeedbackService';
+import { hybridQuestionService } from '../../services/hybridQuestionService';
 import { speechRecognitionService } from '../../services/speechRecognitionService';
 import { textToSpeechService } from '../../services/textToSpeechService';
 import { speechActivityDetector } from '../../services/speechActivityDetector';
@@ -15,6 +17,7 @@ interface MockInterviewRoomProps {
   config: InterviewConfig;
   userId: string;
   userName: string;
+  resume?: UserResume;
   onInterviewComplete: (sessionId: string) => void;
   onBack: () => void;
 }
@@ -25,6 +28,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
   config,
   userId,
   userName,
+  resume,
   onInterviewComplete,
   onBack
 }) => {
@@ -154,13 +158,19 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
     try {
       setStatusMessage('Setting up interview session...');
 
-      const newSession = await interviewService.createSession(config, userId);
+      const newSession = await interviewService.createSession(config, userId, resume);
       setSession(newSession);
 
-      setStatusMessage('Loading interview questions...');
+      setStatusMessage(resume ? 'Analyzing your resume and selecting questions...' : 'Loading interview questions...');
       let loadedQuestions: InterviewQuestion[] = [];
 
-      if (config.interviewCategory === 'technical') {
+      if (resume) {
+        loadedQuestions = await hybridQuestionService.selectQuestionsForInterview(
+          config,
+          resume,
+          10
+        );
+      } else if (config.interviewCategory === 'technical') {
         loadedQuestions = await interviewService.getQuestionsByCategory(
           'Technical',
           10,

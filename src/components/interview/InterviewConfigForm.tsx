@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowLeft, Clock, Briefcase, Target } from 'lucide-react';
+import { ArrowLeft, Clock, Briefcase, Target, Upload, FileText, Loader2 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { resumeAnalysisService } from '../../services/resumeAnalysisService';
+import { UserResume } from '../../types/resumeInterview';
 import {
   InterviewType,
   InterviewCategory,
@@ -11,7 +14,7 @@ import {
 
 interface InterviewConfigFormProps {
   interviewType: InterviewType;
-  onConfigComplete: (config: InterviewConfig) => void;
+  onConfigComplete: (config: InterviewConfig, resume?: UserResume) => void;
   onBack: () => void;
 }
 
@@ -20,13 +23,61 @@ export const InterviewConfigForm: React.FC<InterviewConfigFormProps> = ({
   onConfigComplete,
   onBack
 }) => {
+  const { user } = useAuth();
   const [category, setCategory] = useState<InterviewCategory | ''>('');
   const [companyName, setCompanyName] = useState('');
   const [targetRole, setTargetRole] = useState('');
   const [domain, setDomain] = useState('');
   const [duration, setDuration] = useState(15);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [uploadedResume, setUploadedResume] = useState<UserResume | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [useResumeMode, setUseResumeMode] = useState(false);
 
   const selectedCompany = POPULAR_COMPANIES.find(c => c.name === companyName);
+
+  const handleResumeFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = resumeAnalysisService['resumeParsingService']?.validateFile?.(file) ||
+                       { valid: file.size <= 5242880, error: file.size > 5242880 ? 'File too large' : undefined };
+
+    if (!validation.valid) {
+      setUploadError(validation.error || 'Invalid file');
+      return;
+    }
+
+    setResumeFile(file);
+    setUploadError(null);
+  };
+
+  const handleUploadResume = async () => {
+    if (!resumeFile || !user) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      const resume = await resumeAnalysisService.uploadAndAnalyzeResume(resumeFile, user.id);
+      setUploadedResume(resume);
+
+      const analyzedResume = await resumeAnalysisService.waitForAnalysis(resume.id, 15);
+      setUploadedResume(analyzedResume);
+    } catch (error: any) {
+      console.error('Resume upload error:', error);
+      setUploadError(error.message || 'Failed to upload resume');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRemoveResume = () => {
+    setResumeFile(null);
+    setUploadedResume(null);
+    setUploadError(null);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +92,11 @@ export const InterviewConfigForm: React.FC<InterviewConfigFormProps> = ({
       return;
     }
 
+    if (useResumeMode && !uploadedResume) {
+      alert('Please upload your resume or disable resume-based mode');
+      return;
+    }
+
     const config: InterviewConfig = {
       sessionType: interviewType,
       interviewCategory: category as InterviewCategory,
@@ -50,10 +106,10 @@ export const InterviewConfigForm: React.FC<InterviewConfigFormProps> = ({
       durationMinutes: duration
     };
 
-    onConfigComplete(config);
+    onConfigComplete(config, useResumeMode ? uploadedResume || undefined : undefined);
   };
 
-  const isFormValid = category && (interviewType === 'general' || companyName);
+  const isFormValid = category && (interviewType === 'general' || companyName) && (!useResumeMode || uploadedResume);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-dark-100 dark:via-dark-50 dark:to-dark-100">
@@ -77,6 +133,137 @@ export const InterviewConfigForm: React.FC<InterviewConfigFormProps> = ({
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-6 border-2 border-green-200 dark:border-green-800">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <h3 className="font-bold text-secondary-900 dark:text-gray-100 mb-2 flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    Resume-Based Interview (Optional)
+                  </h3>
+                  <p className="text-sm text-secondary-600 dark:text-gray-400">
+                    Upload your resume to get personalized questions based on your skills and experience.
+                  </p>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer ml-4">
+                  <input
+                    type="checkbox"
+                    checked={useResumeMode}
+                    onChange={(e) => setUseResumeMode(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 dark:peer-focus:ring-green-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
+                </label>
+              </div>
+
+              {useResumeMode && (
+                <div className="space-y-4">
+                  {!uploadedResume ? (
+                    <>
+                      <div className="flex items-center gap-3">
+                        <label className="flex-1">
+                          <div className="flex items-center justify-center w-full h-32 px-4 transition bg-white dark:bg-dark-300 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl hover:border-green-500 dark:hover:border-green-500 cursor-pointer">
+                            <div className="text-center">
+                              <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {resumeFile ? resumeFile.name : 'Click to upload resume (PDF, DOCX, max 5MB)'}
+                              </p>
+                            </div>
+                          </div>
+                          <input
+                            type="file"
+                            accept=".pdf,.docx,.doc"
+                            onChange={handleResumeFileChange}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {resumeFile && (
+                        <button
+                          type="button"
+                          onClick={handleUploadResume}
+                          disabled={isUploading}
+                          className="w-full btn-primary py-3 flex items-center justify-center gap-2"
+                        >
+                          {isUploading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Analyzing Resume...
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4" />
+                              Upload & Analyze
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      {uploadError && (
+                        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-300">
+                          {uploadError}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="bg-white dark:bg-dark-300 rounded-lg p-4 border-2 border-green-500">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <FileText className="w-8 h-8 text-green-600 dark:text-green-400" />
+                          <div>
+                            <h4 className="font-semibold text-secondary-900 dark:text-gray-100">
+                              {uploadedResume.file_name}
+                            </h4>
+                            <p className="text-xs text-secondary-600 dark:text-gray-400">
+                              {uploadedResume.analysis_completed ? '✓ Analysis Complete' : '⏳ Analyzing...'}
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleRemoveResume}
+                          className="text-red-600 hover:text-red-700 text-sm font-medium"
+                        >
+                          Remove
+                        </button>
+                      </div>
+
+                      {uploadedResume.analysis_completed && (
+                        <div className="space-y-2 text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-secondary-600 dark:text-gray-400">Experience Level:</span>
+                            <span className="font-semibold text-secondary-900 dark:text-gray-100">
+                              {uploadedResume.experience_level || 'N/A'}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-secondary-600 dark:text-gray-400">Skills Detected:</span>
+                            <span className="font-semibold text-secondary-900 dark:text-gray-100">
+                              {uploadedResume.skills_detected.length}
+                            </span>
+                          </div>
+                          {uploadedResume.skills_detected.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-secondary-600 dark:text-gray-400 mb-1">Top Skills:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {uploadedResume.skills_detected.slice(0, 5).map((skill, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded text-xs"
+                                  >
+                                    {skill}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             {interviewType === 'company-based' && (
               <div>
                 <label className="block text-sm font-semibold text-secondary-900 dark:text-gray-100 mb-3">

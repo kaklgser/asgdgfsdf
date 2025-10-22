@@ -6,6 +6,7 @@ import { InterviewConfigForm } from '../interview/InterviewConfigForm';
 import { MockInterviewRoom } from '../interview/MockInterviewRoom';
 import { InterviewSummaryReport } from '../interview/InterviewSummaryReport';
 import { InterviewConfig, InterviewType } from '../../types/interview';
+import { UserResume } from '../../types/resumeInterview';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 
 type FlowStage = 'welcome' | 'type-selection' | 'configuration' | 'interview' | 'summary';
@@ -24,6 +25,7 @@ export const MockInterviewPage: React.FC<MockInterviewPageProps> = ({
   const [currentStage, setCurrentStage] = useState<FlowStage>('welcome');
   const [selectedType, setSelectedType] = useState<InterviewType | null>(null);
   const [interviewConfig, setInterviewConfig] = useState<InterviewConfig | null>(null);
+  const [selectedResume, setSelectedResume] = useState<UserResume | null>(null);
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
 
   const handleBack = () => {
@@ -43,8 +45,9 @@ export const MockInterviewPage: React.FC<MockInterviewPageProps> = ({
     setCurrentStage('configuration');
   };
 
-  const handleConfigComplete = (config: InterviewConfig) => {
+  const handleConfigComplete = (config: InterviewConfig, resume?: UserResume) => {
     setInterviewConfig(config);
+    setSelectedResume(resume || null);
     setCurrentStage('interview');
   };
 
@@ -57,6 +60,7 @@ export const MockInterviewPage: React.FC<MockInterviewPageProps> = ({
     setCurrentStage('welcome');
     setSelectedType(null);
     setInterviewConfig(null);
+    setSelectedResume(null);
     setCompletedSessionId(null);
   };
 
@@ -185,6 +189,7 @@ export const MockInterviewPage: React.FC<MockInterviewPageProps> = ({
           config={interviewConfig}
           userId={user.id}
           userName={user.name}
+          resume={selectedResume || undefined}
           onInterviewComplete={handleInterviewComplete}
           onBack={handleBackToConfig}
         />
