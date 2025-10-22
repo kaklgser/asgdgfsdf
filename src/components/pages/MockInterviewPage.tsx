@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import { InterviewTypeSelector } from '../interview/InterviewTypeSelector';
-import { InterviewConfigForm } from '../interview/InterviewConfigForm';
+import { InterviewSetupWizard } from '../interview/InterviewSetupWizard';
 import { MockInterviewRoom } from '../interview/MockInterviewRoom';
 import { InterviewSummaryReport } from '../interview/InterviewSummaryReport';
-import { InterviewConfig, InterviewType } from '../../types/interview';
+import { InterviewConfig } from '../../types/interview';
 import { UserResume } from '../../types/resumeInterview';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 
-type FlowStage = 'welcome' | 'type-selection' | 'configuration' | 'interview' | 'summary';
+type FlowStage = 'welcome' | 'setup' | 'interview' | 'summary';
 
 interface MockInterviewPageProps {
   isAuthenticated: boolean;
@@ -23,7 +22,6 @@ export const MockInterviewPage: React.FC<MockInterviewPageProps> = ({
   const navigate = useNavigate();
   const { user } = useAuth();
   const [currentStage, setCurrentStage] = useState<FlowStage>('welcome');
-  const [selectedType, setSelectedType] = useState<InterviewType | null>(null);
   const [interviewConfig, setInterviewConfig] = useState<InterviewConfig | null>(null);
   const [selectedResume, setSelectedResume] = useState<UserResume | null>(null);
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
@@ -37,17 +35,12 @@ export const MockInterviewPage: React.FC<MockInterviewPageProps> = ({
       onShowAuth();
       return;
     }
-    setCurrentStage('type-selection');
+    setCurrentStage('setup');
   };
 
-  const handleTypeSelected = (type: InterviewType) => {
-    setSelectedType(type);
-    setCurrentStage('configuration');
-  };
-
-  const handleConfigComplete = (config: InterviewConfig, resume?: UserResume) => {
+  const handleConfigComplete = (config: InterviewConfig, resume: UserResume) => {
     setInterviewConfig(config);
-    setSelectedResume(resume || null);
+    setSelectedResume(resume);
     setCurrentStage('interview');
   };
 
@@ -58,14 +51,13 @@ export const MockInterviewPage: React.FC<MockInterviewPageProps> = ({
 
   const handleRetakeInterview = () => {
     setCurrentStage('welcome');
-    setSelectedType(null);
     setInterviewConfig(null);
     setSelectedResume(null);
     setCompletedSessionId(null);
   };
 
-  const handleBackToConfig = () => {
-    setCurrentStage('configuration');
+  const handleBackToSetup = () => {
+    setCurrentStage('setup');
   };
 
   const renderWelcomeScreen = () => (
@@ -104,11 +96,11 @@ export const MockInterviewPage: React.FC<MockInterviewPageProps> = ({
                 How It Works:
               </h3>
               <ol className="space-y-2 text-secondary-700 dark:text-gray-300">
-                <li>Choose your interview type (General or Company-Based)</li>
-                <li>Configure interview details (role, duration, category)</li>
-                <li>Answer questions in a meet-style interview environment</li>
-                <li>Receive AI-powered feedback after each response</li>
-                <li>Get a comprehensive summary report with improvement tips</li>
+                <li>1. Upload your resume for personalized questions</li>
+                <li>2. Choose interview category (Technical or HR)</li>
+                <li>3. Set duration and preferences</li>
+                <li>4. Answer questions in a meet-style interview environment</li>
+                <li>5. Get comprehensive AI feedback and improvement tips</li>
               </ol>
             </div>
 
@@ -118,7 +110,7 @@ export const MockInterviewPage: React.FC<MockInterviewPageProps> = ({
                   ✅ Features Available
                 </h4>
                 <ul className="text-sm text-secondary-700 dark:text-gray-300 space-y-1">
-                  <li>• 20+ Interview Questions</li>
+                  <li>• Resume-Based Questions</li>
                   <li>• Audio/Video Recording</li>
                   <li>• Real-time Speech-to-Text</li>
                   <li>• AI Feedback on Every Answer</li>
@@ -142,7 +134,7 @@ export const MockInterviewPage: React.FC<MockInterviewPageProps> = ({
 
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 mb-6">
               <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                <strong>Note:</strong> This is a beta version. We recommend using Chrome or Edge for the best experience. Make sure to allow camera and microphone permissions when prompted.
+                <strong>Note:</strong> Resume upload is mandatory. Your resume will be analyzed to provide personalized interview questions. We recommend using Chrome or Edge for the best experience.
               </p>
             </div>
           </div>
@@ -169,29 +161,21 @@ export const MockInterviewPage: React.FC<MockInterviewPageProps> = ({
     <>
       {currentStage === 'welcome' && renderWelcomeScreen()}
 
-      {currentStage === 'type-selection' && (
-        <InterviewTypeSelector
-          onTypeSelected={handleTypeSelected}
+      {currentStage === 'setup' && (
+        <InterviewSetupWizard
+          onConfigComplete={handleConfigComplete}
           onBack={() => setCurrentStage('welcome')}
         />
       )}
 
-      {currentStage === 'configuration' && selectedType && (
-        <InterviewConfigForm
-          interviewType={selectedType}
-          onConfigComplete={handleConfigComplete}
-          onBack={() => setCurrentStage('type-selection')}
-        />
-      )}
-
-      {currentStage === 'interview' && interviewConfig && user && (
+      {currentStage === 'interview' && interviewConfig && selectedResume && user && (
         <MockInterviewRoom
           config={interviewConfig}
           userId={user.id}
           userName={user.name}
-          resume={selectedResume || undefined}
+          resume={selectedResume}
           onInterviewComplete={handleInterviewComplete}
-          onBack={handleBackToConfig}
+          onBack={handleBackToSetup}
         />
       )}
 

@@ -17,7 +17,7 @@ interface MockInterviewRoomProps {
   config: InterviewConfig;
   userId: string;
   userName: string;
-  resume?: UserResume;
+  resume: UserResume;
   onInterviewComplete: (sessionId: string) => void;
   onBack: () => void;
 }
@@ -161,34 +161,13 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       const newSession = await interviewService.createSession(config, userId, resume);
       setSession(newSession);
 
-      setStatusMessage(resume ? 'Analyzing your resume and selecting questions...' : 'Loading interview questions...');
-      let loadedQuestions: InterviewQuestion[] = [];
+      setStatusMessage('Analyzing your resume and selecting personalized questions...');
 
-      if (resume) {
-        loadedQuestions = await hybridQuestionService.selectQuestionsForInterview(
-          config,
-          resume,
-          10
-        );
-      } else if (config.interviewCategory === 'technical') {
-        loadedQuestions = await interviewService.getQuestionsByCategory(
-          'Technical',
-          10,
-          config.companyName
-        );
-      } else if (config.interviewCategory === 'hr') {
-        loadedQuestions = await interviewService.getMixedQuestions(
-          ['HR', 'Behavioral'],
-          10,
-          config.companyName
-        );
-      } else {
-        loadedQuestions = await interviewService.getMixedQuestions(
-          ['Technical', 'HR', 'Behavioral'],
-          10,
-          config.companyName
-        );
-      }
+      const loadedQuestions = await hybridQuestionService.selectQuestionsForInterview(
+        config,
+        resume,
+        10
+      );
 
       if (loadedQuestions.length === 0) {
         throw new Error('No questions available for this configuration');
