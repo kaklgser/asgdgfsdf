@@ -55,6 +55,8 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
   // New state for improved auto-submit
   const [hasStartedSpeaking, setHasStartedSpeaking] = useState(false);
   const [minimumSpeechDuration, setMinimumSpeechDuration] = useState(0);
+  // Track total violations for live popup/header
+  const [violationCount, setViolationCount] = useState(0);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -69,6 +71,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
     onFullScreenExit: () => {
       setViolationMessage('⚠️ You exited full-screen mode. Please return to full-screen to continue.');
       setShowViolationWarning(true);
+      setViolationCount((v) => v + 1);
       handlePauseInterview();
     },
     onViolation: (type) => {
@@ -80,6 +83,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
     onTabSwitch: () => {
       setViolationMessage('⚠️ You switched tabs. Please stay on this page during the interview.');
       setShowViolationWarning(true);
+      setViolationCount((v) => v + 1);
       handlePauseInterview();
     },
     onWindowBlur: () => {
@@ -106,11 +110,15 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       silenceCheckIntervalRef.current = setInterval(() => {
         if (speechActivityDetector.isInitialized()) {
           const currentSilence = speechActivityDetector.getCurrentSilenceDuration();
+          // Mark speaking false when any silence persists
+          if (currentSilence > 0) {
+            setIsSpeaking(false);
+          }
           const countdown = Math.max(0, 5 - currentSilence); // CHANGED: 10 to 5 seconds
           setSilenceCountdown(countdown);
 
-          // Only auto-submit if user has spoken for at least 3 seconds
-          if (countdown === 0 && !autoSubmitTriggeredRef.current && hasStartedSpeaking && minimumSpeechDuration >= 3) {
+          // Auto-submit after 5s of silence
+          if (countdown === 0 && !autoSubmitTriggeredRef.current) {
             autoSubmitTriggeredRef.current = true;
             handleAutoSubmit();
           }
@@ -129,6 +137,33 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
       }
     };
   }, [stage, isPaused, hasStartedSpeaking, minimumSpeechDuration]);
+
+  // Ensure video element attaches to the stream whenever the stage changes to a view where it's rendered
+  useEffect(() => {
+    const attach = async () => {
+      if (videoRef.current && videoStreamRef.current) {
+        if (videoRef.current.srcObject !== videoStreamRef.current) {
+          videoRef.current.srcObject = videoStreamRef.current;
+        }
+        try {
+          if (videoRef.current.readyState >= 2) {
+            await videoRef.current.play();
+          } else {
+            await new Promise<void>((resolve) => {
+              if (!videoRef.current) return resolve();
+              videoRef.current.onloadedmetadata = () => resolve();
+            });
+            if (videoRef.current) {
+              await videoRef.current.play();
+            }
+          }
+        } catch (err) {
+          console.error('Error ensuring video playback:', err);
+        }
+      }
+    };
+    attach();
+  }, [stage]);
 
   useEffect(() => {
     if (!isPaused && stage === 'listening') {
@@ -308,8 +343,13 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
     if (videoStreamRef.current) {
       try {
         await speechActivityDetector.initialize(videoStreamRef.current, {
-          silenceThreshold: 5000, // CHANGED: 10000 to 5000 (5 seconds)
-          volumeThreshold: -40 // CHANGED: -50 to -40 (less sensitive to background noise)
+          silenceThreshold: 5000, // 5 seconds of continuous silence
+          adaptive: true,         // calibrate to room noise
+          calibrationMs: 1000,    // 1s baseline noise sample
+          minSpeechMs: 250,       // require ~250ms of speech to count
+          hangoverMs: 300,        // keep speaking for 300ms after drop
+          rmsMultiplier: 2.8,     // speech must be ~2.8x baseline RMS
+          absoluteRmsFloor: 0.035 // never count super-low noise as speech
         });
 
         speechActivityDetector.start(
@@ -318,7 +358,6 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
           },
           () => {
             setIsSpeaking(true);
-            setSilenceCountdown(5); // CHANGED: 10 to 5
             if (!hasStartedSpeaking) {
               setHasStartedSpeaking(true);
             }
@@ -579,13 +618,11 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
   };
 
   const handleEndInterview = async () => {
-    if (window.confirm('Are you sure you want to end the interview? Your progress will be saved.')) {
-      if (session) {
-        await interviewService.updateSessionStatus(session.id, 'abandoned');
-      }
+    if (window.confirm('End interview now and view your report? Your progress so far will be analyzed.')) {
+      // Stop media and timers first
       cleanup();
-      fullScreen.exitFullScreen();
-      onBack();
+      // Finalize the session and navigate to the summary report
+      await completeInterview();
     }
   };
 
@@ -617,7 +654,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const totalViolations = tabDetector.tabSwitchCount + fullScreen.violations;
+  const totalViolations = violationCount;
 
   if (stage === 'loading') {
     return (
@@ -689,12 +726,20 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                 <strong>Time Away:</strong> {tabDetector.totalTimeAway}s
               </p>
             </div>
-            <button
-              onClick={handleResumeInterview}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
-            >
-              Return to Interview
-            </button>
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                onClick={handleResumeInterview}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg transition-colors"
+              >
+                Return to Interview
+              </button>
+              <button
+                onClick={handleEndInterview}
+                className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition-colors"
+              >
+                End Interview & View Report
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -761,7 +806,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                         <div className="flex items-start gap-3">
                           <div className="text-blue-300 text-sm flex-1">
                             <strong className="text-blue-200 text-base">📌 Auto-Submit Info:</strong>
-                            <p className="mt-1">Your answer will automatically submit after <strong>5 seconds</strong> of silence, but only after you've started speaking.</p>
+                            <p className="mt-1">Your answer will automatically submit after <strong>5 seconds</strong> of silence.</p>
                           </div>
                           <button
                             onClick={() => setShowAutoSubmitInfo(false)}
@@ -780,7 +825,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
                     </div>
 
                     {/* CHANGED: Countdown now shows for 5 seconds instead of 10 */}
-                    {silenceCountdown < 5 && silenceCountdown > 0 && hasStartedSpeaking && (
+                    {silenceCountdown <= 5 && silenceCountdown > 0 && (
                       <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
                         <div className="flex items-center justify-between">
                           <span className="text-yellow-400 text-sm">Auto-submitting in:</span>
