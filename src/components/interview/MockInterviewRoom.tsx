@@ -719,7 +719,7 @@ export const MockInterviewRoom: React.FC<MockInterviewRoomProps> = ({
               <li>• Do not switch tabs or minimize the window</li>
               <li>• Do not open other applications</li>
               <li>• Violations will be tracked and reported</li>
-              <li>• Answers auto-submit after 5 seconds of silence (only after you start speaking)</li>
+              <li>• Answers auto-submit after 5 seconds of silence</li>
             </ul>
           </div>
           <button
