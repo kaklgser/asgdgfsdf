@@ -11,11 +11,11 @@ export const DiwaliOfferBanner: React.FC<DiwaliOfferBannerProps> = ({ onCTAClick
   const [isVisible, setIsVisible] = useState(true);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
-  // ✅ End at end-of-day, 3 days from now
+  // ✅ End at end-of-day, TODAY
   const offerEndTs = useMemo(() => {
     const end = new Date();
-    end.setDate(end.getDate() + 3);
-    end.setHours(23, 59, 59, 0);
+    // end.setDate(end.getDate() + 3); // <-- REMOVED as requested
+    end.setHours(23, 59, 59, 0); // Sets to end of the current day
     return end.getTime();
   }, []);
 
@@ -38,6 +38,11 @@ export const DiwaliOfferBanner: React.FC<DiwaliOfferBannerProps> = ({ onCTAClick
     const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, [offerEndTs]);
+
+  // A close button to hide the banner
+  const handleClose = () => {
+    setIsVisible(false);
+  };
 
   if (!isVisible) return null;
 
@@ -84,12 +89,11 @@ export const DiwaliOfferBanner: React.FC<DiwaliOfferBannerProps> = ({ onCTAClick
                 <div className="text-lg sm:text-xl font-bold">{timeLeft.minutes}</div>
                 <div className="text-xs">Mins</div>
               </div>
-              {/* Uncomment if you want seconds too:
+              {/* Seconds are usually too noisy, but uncomment if needed */}
               <div className="text-center bg-white/20 px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg backdrop-blur-sm">
                 <div className="text-lg sm:text-xl font-bold">{timeLeft.seconds}</div>
                 <div className="text-xs">Secs</div>
               </div>
-              */}
             </div>
 
             {/* CTA Button */}
@@ -100,7 +104,15 @@ export const DiwaliOfferBanner: React.FC<DiwaliOfferBannerProps> = ({ onCTAClick
               Claim Now
             </button>
 
-           
+            {/* Close Button */}
+            <button
+              onClick={handleClose}
+              className="absolute top-2 right-2 text-white/70 hover:text-white transition-colors"
+              aria-label="Close banner"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
           </div>
         </div>
       </motion.div>
