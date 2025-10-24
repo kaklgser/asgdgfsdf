@@ -71,8 +71,9 @@ function App() {
   const [planSelectionFeatureId, setPlanSelectionFeatureId] = useState<string | undefined>(undefined);
   const [initialExpandAddons, setInitialExpandAddons] = useState(true);
 
-  const [showWelcomeOffer, setShowWelcomeOffer] = useState(false);
-  const [showDiwaliBanner, setShowDiwaliBanner] = useState(true);
+ const [showWelcomeOffer, setShowWelcomeOffer] = useState(false);
+  // Disable Diwali homepage banner
+  const [showDiwaliBanner, setShowDiwaliBanner] = useState(false);
 
   const [messageGenerationInterrupted, setMessageGenerationInterrupted] = useState(false);
   const [postAuthCallback, setPostAuthCallback] = useState<(() => void) | null>(null);
