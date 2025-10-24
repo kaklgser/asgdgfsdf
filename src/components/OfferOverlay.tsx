@@ -63,7 +63,7 @@ export const OfferOverlay: React.FC<OfferOverlayProps> = ({
             title="View Subscription Plan Details"
           >
             <img
-              src="https://res.cloudinary.com/dvue2zenh/image/upload/v1760781622/bqr48g8czgaqubk2kyf8.png"
+              src="https://i.ibb.co/Nk95wJM/offer-banner.png"
               alt="Limited Time Offers"
               className="w-full h-40 object-cover rounded-2xl shadow-md mx-auto"
             />
