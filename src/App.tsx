@@ -626,7 +626,7 @@ const handleDiwaliCTAClick = useCallback(() => {
             ctaLabel="Start Mock Interview Now"
           />
         )}
-        )}
+      
 
         {showProfileManagement && (
           <UserProfileManagement
