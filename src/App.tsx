@@ -12,7 +12,7 @@ import { LinkedInMessageGenerator } from './components/LinkedInMessageGenerator'
 import { AboutUs } from './components/pages/AboutUs';
 import { Contact } from './components/pages/Contact';
 import { Tutorials } from './components/pages/Tutorials';
-import { ScoreCheckerOverview } from './components/pages/ScoreCheckerOverview';
+
 import { AuthModal } from './components/auth/AuthModal';
 import { UserProfileManagement } from './components/UserProfileManagement';
 import { SubscriptionPlans } from './components/payment/SubscriptionPlans';
