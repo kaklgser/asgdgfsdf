@@ -48,6 +48,14 @@ serve(async (req) => {
       throw new Error('Unauthorized: User ID mismatch.');
     }
 
+    // Explicitly disable DIWALI coupon
+    if (couponCode.trim().toLowerCase() === 'diwali') {
+      return new Response(
+        JSON.stringify({ isValid: false, message: 'Coupon expired or inactive.' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 },
+      );
+    }
+
     // Check if the coupon has already been used by this user
     const { count, error: couponUsageError } = await supabase
       .from('payment_transactions')
@@ -97,4 +105,3 @@ serve(async (req) => {
     );
   }
 });
-
