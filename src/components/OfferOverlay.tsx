@@ -71,7 +71,7 @@ export const OfferOverlay: React.FC<OfferOverlayProps> = ({
 
           {/* Title */}
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-6">
-            Diwali Offers
+            Limited Time Offers
           </h2>
 
           {/* CTA */}
