@@ -619,16 +619,13 @@ const handleDiwaliCTAClick = useCallback(() => {
         />
 
         {showWelcomeOffer && (
-         <OfferOverlay
-          isOpen={showWelcomeOffer}
-          onClose={() => setShowWelcomeOffer(false)}
-          // Open the SubscriptionPlans modal like the Home page button
-          onAction={() => {
-            setShowSubscriptionPlans(true);
-            setInitialExpandAddons(false);
-          }}
-          ctaLabel="View All Plans & Add-ons"
-        />
+          <OfferOverlay
+            isOpen={showWelcomeOffer}
+            onClose={() => setShowWelcomeOffer(false)}
+            targetPath="/mock-interview"
+            ctaLabel="Start Mock Interview Now"
+          />
+        )}
         )}
 
         {showProfileManagement && (
