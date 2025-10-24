@@ -79,12 +79,9 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
 
   const allPlansWithAddOnOption = [...plans];
 
-  // ✅ NEW: Helper function to check if plan is eligible for DIWALI coupon
-  const isDiwaliEligiblePlan = (planId: string) => {
-    // Change this to match which plan(s) should be eligible
-    // For all plans: return true;
-    // For specific plan: return planId === 'achiever_plan';
-    return planId === 'achiever_plan'; // Only achiever_plan gets 90% off
+  // Helper function (Diwali promo disabled)
+  const isDiwaliEligiblePlan = (_planId: string) => {
+    return false;
   };
 
   useEffect(() => {
@@ -341,10 +338,8 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
             <p className="text-sm sm:text-lg lg:text-xl text-gray-600 dark:text-gray-300 mb-3 sm:mb-6">
               {currentStep === 0 ? 'Flexible pricing for every career stage.' : 'Review your selection and complete your purchase.'}
             </p>
-            {/* ✅ NEW: Diwali Offer Banner in Header */}
-            <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-4 py-2 rounded-full inline-block shadow-lg animate-pulse">
-              <span className="text-sm sm:text-base font-bold">🪔 Use code DIWALI for 90% OFF! 🎉</span>
-            </div>
+            {/* Promo banner removed */}
+            <div />
           </div>
         </div>
 
@@ -537,7 +532,7 @@ export const SubscriptionPlans: React.FC<SubscriptionPlansProps> = ({
                 <div className="flex space-x-2">
                   <input
                     type="text"
-                    placeholder="Enter coupon code (e.g., DIWALI)"
+                    placeholder="Enter coupon code"
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value)}
                     className="input-base flex-1"
