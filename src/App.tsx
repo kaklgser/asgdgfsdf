@@ -12,6 +12,7 @@ import { LinkedInMessageGenerator } from './components/LinkedInMessageGenerator'
 import { AboutUs } from './components/pages/AboutUs';
 import { Contact } from './components/pages/Contact';
 import { Tutorials } from './components/pages/Tutorials';
+import { ScoreCheckerOverview } from './components/pages/ScoreCheckerOverview';
 import { AuthModal } from './components/auth/AuthModal';
 import { UserProfileManagement } from './components/UserProfileManagement';
 import { SubscriptionPlans } from './components/payment/SubscriptionPlans';
@@ -72,7 +73,8 @@ function App() {
   const [initialExpandAddons, setInitialExpandAddons] = useState(true);
 
   const [showWelcomeOffer, setShowWelcomeOffer] = useState(false);
-  const [showDiwaliBanner, setShowDiwaliBanner] = useState(true);
+  // Disable Diwali homepage banner
+  const [showDiwaliBanner, setShowDiwaliBanner] = useState(false);
 
   const [messageGenerationInterrupted, setMessageGenerationInterrupted] = useState(false);
   const [postAuthCallback, setPostAuthCallback] = useState<(() => void) | null>(null);
@@ -435,6 +437,7 @@ const handleDiwaliCTAClick = useCallback(() => {
             }
           />
           <Route path="/score-checker" element={<ResumeScoreChecker {...commonPageProps} />} />
+          <Route path="/score-checker/overview" element={<ScoreCheckerOverview />} />
           <Route path="/guided-builder" element={<GuidedResumeBuilder {...commonPageProps} />} />
           <Route path="/linkedin-generator" element={<LinkedInMessageGenerator {...commonPageProps} />} />
           <Route path="/portfolio-builder" element={<PortfolioBuilderPage isAuthenticated={isAuthenticated} onShowAuth={handleShowAuth} />} />
