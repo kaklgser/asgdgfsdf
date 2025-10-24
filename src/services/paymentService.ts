@@ -730,6 +730,18 @@ class PaymentService {
     let message = 'Coupon applied successfully!';
     const normalizedCoupon = couponCode.toLowerCase().trim();
 
+    // Disable DIWALI coupon (expired/inactive)
+    if (normalizedCoupon === 'diwali') {
+      return {
+        couponApplied: null,
+        discountAmount: 0,
+        finalAmount: originalPrice,
+        error: 'Coupon expired or inactive',
+        isValid: false,
+        message: 'Coupon expired or inactive',
+      };
+    }
+
     if (normalizedCoupon === 'fullsupport' && planId === 'career_pro_max') {
       discountAmount = originalPrice;
       finalAmount = 0;
